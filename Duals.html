@@ -150,13 +150,13 @@ input[type=text]:focus{border-color:#4af;}
       <div><span style="color:#99b;min-width:110px;display:inline-block;">SPACE</span>회피 (스테미나 40 소모)</div>
       <div><span style="color:#99b;min-width:110px;display:inline-block;">L-SHIFT</span>반격 — 저스트 회피 후 사용</div>
       <div style="color:#4af;letter-spacing:3px;font-size:11px;margin:10px 0 6px;">── 시스템 ──</div>
-      <div><span style="color:#99b;min-width:110px;display:inline-block;">저스트 회피</span>투사체에 스치며 회피 → 반격 게이지 획득</div>
-      <div><span style="color:#99b;min-width:110px;display:inline-block;">스테미나</span>잠시 후 자동 회복</div>
-      <div><span style="color:#99b;min-width:110px;display:inline-block;">체력 회복</span>5초간 전투 없으면 10%/초 자연 회복</div>
+      <div><span style="color:#99b;min-width:110px;display:inline-block;">저스트 회피</span>정확한 타이밍에 공격 회피 → 반격기 활성화</div>
+      <div><span style="color:#99b;min-width:110px;display:inline-block;">스테미나</span>자동 회복</div>
+      <div><span style="color:#99b;min-width:110px;display:inline-block;">체력 회복</span>5초간 전투 없으면 10%/s 자연 회복</div>
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.12.3</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.14.0</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -878,6 +878,45 @@ const BALANCE = {
       cd:             300,
     },
   },
+
+  // ── 칸 ─────────────────────────────────────────────────────
+  kan: {
+    hp:     100,
+    speed:  4.5,
+    radius: 20,
+
+    gaugeMax:        100,
+    gaugeDrainDelay: 7000,  // ms 전투 없으면 게이지 감소 시작
+    gaugeDrainRate:  10,    // 초당 감소량
+
+    lmb: {
+      cost:        25,
+      meleeRange:  130,
+      halfAngle:   0.55,
+      baseDamage:  10,
+      gaugeDamage: 30,    // 게이지 100%시 추가 최대 피해
+      gaugeGain:   15,    // 적중시 게이지 상승
+      cd:          500,
+    },
+    rmb: {
+      cost:              50,
+      pullRange:         130,
+      pullDur:           280,  // 끌어당기기 이동 시간
+      lockDur:           1000,  // 쌍방 행동불능 시간
+      knockbackPower:    1000,
+      knockbackStunDur:  1500,
+      cd:                1200,
+    },
+    counter: {
+      minRange:    100,
+      maxRange:    300,
+      minDamage:   10,
+      maxDamage:   90,
+      minKbPower:  200,
+      maxKbPower:  700,
+      cd:          300,
+    },
+  },
 };
 
 // ── 자주 쓰이는 시스템 수치 단축 참조 ──────────────────────
@@ -1142,6 +1181,25 @@ const CHARACTERS = {
       { key:'LMB',     name:'패스트 펀치', cost:BALANCE.phase.lmb.cost,  desc:`근거리 연속 펀치. 체력이 낮을수록 연사속도 증가 (${BALANCE.phase.lmb.damage})` },
       { key:'RMB',     name:'점프 업',    cost:BALANCE.phase.rmb.cost,  desc:`벽을 무시하며 지정 방향으로 점프` },
       { key:'L-Shift', name:'그래핑',     cost:0,                        desc:`공격 후 적중 시 적을 끌어당김 (${BALANCE.phase.counter.damage})` },
+    ],
+  },
+
+  kan: {
+    id:        'kan',
+    name:      '칸',
+    color:     '#1a6b35',
+    maxHealth: BALANCE.kan.hp,
+    speed:     BALANCE.kan.speed,
+    radius:    BALANCE.kan.radius,
+    statsText: [['체력', String(BALANCE.kan.hp)],['이동속도','매우 빠름'],['스타일','게이지형 근거리 파이터']],
+    desc:      '악식 게이지를 쌓아 강력한 충격파를 발산하는 캐릭터',
+    skills: [
+      { key:'LMB',     name:'악식 건틀렛', cost:BALANCE.kan.lmb.cost,
+        desc:`근거리 부채꼴 공격. 피해는 악식 게이지에 비례하며 적중시 게이지 상승 (${BALANCE.kan.lmb.baseDamage}~${BALANCE.kan.lmb.baseDamage+BALANCE.kan.lmb.gaugeDamage})` },
+      { key:'RMB',     name:'붙들기',     cost:BALANCE.kan.rmb.cost,
+        desc:`근거리 상대를 붙들어 끌어당김. 쌍방 0.5초 행동불능 후 강하게 밀쳐내며 기절 (${BALANCE.kan.rmb.knockbackStunDur/1000}초)` },
+      { key:'L-Shift', name:'역류',       cost:0,
+        desc:`악식 게이지를 모두 소모하여 충격파 발산. 게이지에 비례한 범위와 피해 (${BALANCE.kan.counter.minDamage}~${BALANCE.kan.counter.maxDamage})` },
     ],
   },
 };
@@ -3256,6 +3314,102 @@ const SKILLS = {
       }, BALANCE.counter.delay);
     },
   },
+
+  // ── 칸 ─────────────────────────────────────────────────────
+  kan: {
+    lmb(angle) {
+      const B = BALANCE.kan.lmb;
+      if (L.lmbCooldown > 0) return;
+      if (!useStam(B.cost)) return;
+      const dist = Math.hypot(R.x - L.x, R.y - L.y);
+      let hit = false;
+      if (dist < B.meleeRange + R.radius) {
+        const toR = Math.atan2(R.y - L.y, R.x - L.x);
+        const diff = Math.abs(((toR - angle) + Math.PI*3) % (Math.PI*2) - Math.PI);
+        if (diff < B.halfAngle) {
+          const gauge = L._kanGauge || 0;
+          const dmg = Math.round(B.baseDamage + B.gaugeDamage * (gauge / BALANCE.kan.gaugeMax));
+          hitRemote(dmg);
+          L._kanGauge = Math.min(BALANCE.kan.gaugeMax, gauge + B.gaugeGain);
+          hit = true;
+        }
+      }
+      const col = hit ? '80,220,120' : '40,160,80';
+      addFx({type:'kanSlash', x:L.x, y:L.y, angle, range:B.meleeRange, halfAngle:B.halfAngle, col, dur:10, maxDur:10});
+      send({type:'fx', fx:{type:'kanSlash', x:L.x, y:L.y, angle, range:B.meleeRange, halfAngle:B.halfAngle, col, dur:10, maxDur:10}});
+      L.lmbCooldown = B.cd; L.lastAttackTime = performance.now();
+    },
+
+    rmb(angle) {
+      const B = BALANCE.kan.rmb;
+      if (L.rmbCooldown > 0) return;
+      const dist = Math.hypot(R.x - L.x, R.y - L.y);
+      if (dist > B.pullRange + R.radius) return;
+      if (!useStam(B.cost)) return;
+
+      // 넉백 방향 사전 계산 (끌어당기기 전 방향 캡처)
+      const kbAngle = Math.atan2(R.y - L.y, R.x - L.x);
+      const kbVX = Math.cos(kbAngle) * B.knockbackPower;
+      const kbVY = Math.sin(kbAngle) * B.knockbackPower;
+
+      // 상대를 칸 옆으로 끌어당김
+      const pullTX = Math.max(R.radius, Math.min(WORLD_W-R.radius, L.x + Math.cos(kbAngle) * (L.radius + R.radius + 6)));
+      const pullTY = Math.max(R.radius, Math.min(WORLD_H-R.radius, L.y + Math.sin(kbAngle) * (L.radius + R.radius + 6)));
+      send({type:'pull', tx: pullTX, ty: pullTY, dur: B.pullDur});
+
+      // 쌍방 행동불능
+      L.stunEnd = performance.now() + B.lockDur;
+      stunRemote(B.lockDur);
+
+      addFx({type:'kanGrab', x:L.x, y:L.y, r:0, maxR:B.pullRange*0.6, dur:12, maxDur:12});
+      send({type:'fx', fx:{type:'kanGrab', x:L.x, y:L.y, r:0, maxR:B.pullRange*0.6, dur:12, maxDur:12}});
+
+      const tok = ++L._counterToken;
+      setTimeout(() => {
+        if (!gameOn || L._counterToken !== tok) return;
+        if (!R.burrowing) {
+          send({type:'knockback', vx: kbVX, vy: kbVY});
+          R.tx = Math.max(R.radius, Math.min(WORLD_W-R.radius, R.tx + kbVX * 0.35));
+          R.ty = Math.max(R.radius, Math.min(WORLD_H-R.radius, R.ty + kbVY * 0.35));
+        }
+        stunRemote(B.knockbackStunDur);
+        addFx({type:'kanThrow', x:L.x, y:L.y, r:0, maxR:60, dur:14, maxDur:14});
+        send({type:'fx', fx:{type:'kanThrow', x:L.x, y:L.y, r:0, maxR:60, dur:14, maxDur:14}});
+        L.lastAttackTime = performance.now();
+      }, B.lockDur + 50);
+
+      L.rmbCooldown = B.cd; L.lastAttackTime = performance.now();
+    },
+
+    counter(angle) {
+      const B = BALANCE.kan.counter;
+      if (!L.counterReady) return;
+      if (L.lmbCooldown > 0 || L.rmbCooldown > 0) return;
+      L.counterReady = false; L.lmbCooldown = B.cd; L.rmbCooldown = B.cd;
+
+      const gauge = L._kanGauge || 0;
+      const t = gauge / BALANCE.kan.gaugeMax;
+      const range   = Math.round(B.minRange   + (B.maxRange   - B.minRange)   * t);
+      const damage  = Math.round(B.minDamage  + (B.maxDamage  - B.minDamage)  * t);
+      const kbPower = Math.round(B.minKbPower + (B.maxKbPower - B.minKbPower) * t);
+      L._kanGauge = 0;
+
+      L.color = '#ffd700'; send({type:'colorChange', color:'#ffd700'});
+      addFx({type:'counterCharge', x:L.x, y:L.y, r:35, maxR:35, dur:18, maxDur:18});
+      const tok = ++L._counterToken;
+      setTimeout(() => {
+        if (!gameOn || L._counterToken !== tok) return;
+        L.color = L.defaultColor; L._preFlashColor = null; send({type:'colorChange', color:L.defaultColor});
+        if (Math.hypot(R.x - L.x, R.y - L.y) < range + R.radius) {
+          hitRemote(damage);
+          knockbackRemote(kbPower);
+        }
+        addFx({type:'kanShockwave', x:L.x, y:L.y, r:0, maxR:range, gaugeT:t, dur:22, maxDur:22});
+        send({type:'fx', fx:{type:'kanShockwave', x:L.x, y:L.y, r:0, maxR:range, gaugeT:t, dur:22, maxDur:22}});
+        L.lastAttackTime = performance.now();
+      }, BALANCE.counter.delay);
+    },
+  },
 };
 
 // ============================================================
@@ -4259,6 +4413,42 @@ function draw() {
       const gx = f.x + cosg*f.range, gy = f.y + sing*f.range;
       ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(gx, gy);
       ctx.strokeStyle = `rgba(220,180,255,${a*0.95})`; ctx.lineWidth = 3.5; ctx.stroke();
+    } else if (f.type==='kanSlash') {
+      // 악식 건틀렛 — 짙은 녹색 부채꼴
+      const col = f.col ?? '40,160,80';
+      ctx.beginPath(); ctx.moveTo(f.x, f.y);
+      ctx.arc(f.x, f.y, f.range, f.angle - f.halfAngle, f.angle + f.halfAngle);
+      ctx.closePath();
+      ctx.fillStyle=`rgba(${col},${a*0.25})`; ctx.fill();
+      ctx.strokeStyle=`rgba(${col},${a*0.92})`; ctx.lineWidth=2.5; ctx.stroke();
+      const ke1=f.x+Math.cos(f.angle-f.halfAngle)*f.range, ke2=f.y+Math.sin(f.angle-f.halfAngle)*f.range;
+      const ke3=f.x+Math.cos(f.angle+f.halfAngle)*f.range, ke4=f.y+Math.sin(f.angle+f.halfAngle)*f.range;
+      ctx.beginPath(); ctx.moveTo(ke1,ke2); ctx.lineTo(ke3,ke4);
+      ctx.strokeStyle=`rgba(${col},${a*0.55})`; ctx.lineWidth=1.5; ctx.stroke();
+    } else if (f.type==='kanGrab') {
+      // 붙들기 — 녹색 수렴 링
+      const rg = f.maxR * (1 - f.dur/f.maxDur);
+      ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1,rg), 0, Math.PI*2);
+      ctx.fillStyle=`rgba(26,107,53,${a*0.2})`; ctx.fill();
+      ctx.strokeStyle=`rgba(40,200,80,${a*0.9})`; ctx.lineWidth=3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1,rg*0.5), 0, Math.PI*2);
+      ctx.strokeStyle=`rgba(120,240,150,${a*0.55})`; ctx.lineWidth=1.5; ctx.stroke();
+    } else if (f.type==='kanThrow') {
+      // 밀쳐내기 폭발
+      const rt = f.maxR * (1 - f.dur/f.maxDur);
+      ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1,rt), 0, Math.PI*2);
+      ctx.fillStyle=`rgba(26,107,53,${a*0.3})`; ctx.fill();
+      ctx.strokeStyle=`rgba(80,220,120,${a*0.95})`; ctx.lineWidth=4; ctx.stroke();
+    } else if (f.type==='kanShockwave') {
+      // 역류 충격파 — 게이지에 비례한 밝기
+      const rs = f.maxR * (1 - f.dur/f.maxDur);
+      const gt = f.gaugeT ?? 0;
+      const g1 = Math.round(107 + 93*gt), g2 = Math.round(160 + 60*gt);
+      ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1,rs), 0, Math.PI*2);
+      ctx.fillStyle=`rgba(26,${g1},53,${a*(0.15+0.15*gt)})`; ctx.fill();
+      ctx.strokeStyle=`rgba(40,${g2},80,${a*0.95})`; ctx.lineWidth=3+2*gt; ctx.stroke();
+      ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1,rs*0.55), 0, Math.PI*2);
+      ctx.strokeStyle=`rgba(120,240,150,${a*(0.4+0.3*gt)})`; ctx.lineWidth=2; ctx.stroke();
     }
   });
 
@@ -4820,6 +5010,25 @@ function drawPlayer(p, label) {
     }
   }
 
+  // 칸 악식 게이지 (원형 호)
+  if (p===L && L.charDef?.id==='kan') {
+    const gPct = Math.min(1, (L._kanGauge||0) / BALANCE.kan.gaugeMax);
+    if (gPct > 0) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius+14, -Math.PI/2, -Math.PI/2 + Math.PI*2*gPct);
+      ctx.strokeStyle = gPct >= 1 ? 'rgba(40,200,80,1.0)' : 'rgba(26,107,53,0.8)';
+      ctx.lineWidth = 3.5; ctx.stroke();
+      if (gPct >= 1) {
+        const pulseK = 0.5+0.4*Math.sin(performance.now()*0.014);
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius+18, 0, Math.PI*2);
+        ctx.strokeStyle=`rgba(80,220,120,${pulseK*0.7})`; ctx.lineWidth=1.5;
+        ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle='rgba(40,200,80,0.9)'; ctx.font='bold 10px Courier New'; ctx.textAlign='center';
+        ctx.fillText('MAX', p.x, sby+sbh+13);
+      }
+    }
+  }
+
   // 파비 버티기 링 — 로컬·상대 공통 표시
   const showFortify = (p===L && L._erapabiFortify) || (p===R && R.erapabiFortify);
   if (showFortify) {
@@ -4994,6 +5203,7 @@ function resetL() {
   L._reikaEnergy=0; L._reikaBlessed=false; L._reikaBlessedExpiry=0;
   L._reikaPreswing=false; L._reikaJumping=false;
   L._reikaRBurning=null; L._reikaFireTrails=[]; L._reikaTrailLast=null; L._burnEnd=0;
+  L._kanGauge=0;
   if (_dodgeInterval) { clearInterval(_dodgeInterval); _dodgeInterval=null; }
 }
 
@@ -5340,6 +5550,15 @@ function loop() {
         send({type:'fx', fx:{type:'shairazTrapTrigger', x:trap.x, y:trap.y, r:0, maxR:55, dur:20, maxDur:20}});
         L._shairazTraps.splice(i, 1);
       }
+    }
+  }
+
+  // ── 칸 악식 게이지 드레인 처리 ─────────────────────────
+  if (L.charDef?.id === 'kan' && (L._kanGauge||0) > 0) {
+    const BK = BALANCE.kan;
+    const lastCombat = Math.max(L.lastAttackTime, L.lastHitTime);
+    if (now - lastCombat > BK.gaugeDrainDelay) {
+      L._kanGauge = Math.max(0, (L._kanGauge||0) - BK.gaugeDrainRate * (physDt/1000));
     }
   }
 
