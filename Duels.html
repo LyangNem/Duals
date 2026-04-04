@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Duels</title>
+<title>Duals</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
 
@@ -155,7 +155,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.14.4</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.14.5</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -889,16 +889,16 @@ const BALANCE = {
     gaugeDrainRate:  10,    // 초당 감소량
 
     lmb: {
-      cost:        20,
+      cost:        25,
       meleeRange:  130,
       halfAngle:   0.45,
       baseDamage:  10,
-      gaugeDamage: 30,    // 게이지 100%시 추가 최대 피해
+      gaugeDamage: 20,    // 게이지 100%시 추가 최대 피해
       gaugeGain:   15,    // 적중시 게이지 상승
       cd:          350,
     },
     rmb: {
-      cost:              50,
+      cost:              100,
       pullRange:         130,
       pullDur:           280,  // 끌어당기기 이동 시간
       lockDur:           500,  // 쌍방 행동불능 시간
@@ -1064,7 +1064,7 @@ const CHARACTERS = {
     desc:      '로켓포로 게임을 끝장내는 캐릭터',
     skills: [
       { key:'LMB',     name:'초콜릿 쌍권총',    cost:BALANCE.veleu.lmb.cost, desc:`쌍권총 3발 발사 (탄당 ${BALANCE.veleu.lmb.damage}).` },
-      { key:'RMB',     name:'초콜릿 로켓포',    cost:'200', desc:`강력한 초콜릿 로켓 발사. 폭발 범위 내 피해 ${BALANCE.veleu.rmb.slowDur/1000}초간 슬로우 지대 형성. 근접 적중 시 기절 (${BALANCE.veleu.rmb.explosionDamage})` },
+      { key:'RMB',     name:'초콜릿 로켓포',    cost:'전량', desc:`강력한 초콜릿 로켓 발사. 폭발 범위 내 피해(${BALANCE.veleu.rmb.explosionDamage}) 및 발사 지점에 ${BALANCE.veleu.rmb.slowDur/1000}초 슬로우 지대, 근접 적중 시 기절` },
       { key:'L-Shift', name:'초콜릿 폭탄 투척', cost:0, desc:`전방에 초콜릿 폭탄 ${BALANCE.veleu.counter.count}개를 일렬로 투척 (탄당 ${BALANCE.veleu.counter.damage})` },
     ],
   },
@@ -1174,7 +1174,7 @@ const CHARACTERS = {
     maxHealth: BALANCE.phase.hp,
     speed:     BALANCE.phase.speed,
     radius:    BALANCE.phase.radius,
-    statsText: [['체력', String(BALANCE.phase.hp)],['이동속도','보통'],['스타일','버서커형 근거리 딜러']],
+    statsText: [['체력', String(BALANCE.phase.hp)],['이동속도','보통'],['스타일','버서커형 근거리 암살자']],
     desc:      '빠른 속공으로 적을 한번에 처치하는 캐릭터',
     skills: [
       { key:'LMB',     name:'패스트 펀치', cost:BALANCE.phase.lmb.cost,  desc:`근거리 연속 펀치. 체력이 낮을수록 연사속도 증가 (${BALANCE.phase.lmb.damage})` },
@@ -1190,13 +1190,13 @@ const CHARACTERS = {
     maxHealth: BALANCE.kan.hp,
     speed:     BALANCE.kan.speed,
     radius:    BALANCE.kan.radius,
-    statsText: [['체력', String(BALANCE.kan.hp)],['이동속도','매우 빠름'],['스타일','게이지형 근거리 파이터']],
-    desc:      '악식 게이지를 쌓아 강력한 충격파를 발산하는 캐릭터',
+    statsText: [['체력', String(BALANCE.kan.hp)],['이동속도','매우 빠름'],['스타일','게이지형 근거리 딜러']],
+    desc:      '악식 게이지를 쌓아 싸우고 마지막 타로 강력한 충격파를 발산하는 캐릭터',
     skills: [
       { key:'LMB',     name:'악식 건틀렛', cost:BALANCE.kan.lmb.cost,
         desc:`근거리 부채꼴 공격. 피해는 악식 게이지에 비례하며 적중시 게이지 상승 (${BALANCE.kan.lmb.baseDamage}~${BALANCE.kan.lmb.baseDamage+BALANCE.kan.lmb.gaugeDamage})` },
       { key:'RMB',     name:'붙들기',     cost:BALANCE.kan.rmb.cost,
-        desc:`근거리 상대를 붙들어 끌어당김. 쌍방 0.5초 행동불능 후 강하게 밀쳐내며 기절 (${BALANCE.kan.rmb.knockbackStunDur/1000}초)` },
+        desc:`근거리 상대를 붙들어 끌어당김. 잠시 후 강하게 밀쳐내며 기절시킴 (${BALANCE.kan.rmb.knockbackStunDur/1000}초)` },
       { key:'L-Shift', name:'역류',       cost:0,
         desc:`악식 게이지를 모두 소모하여 충격파 발산. 게이지에 비례한 범위와 피해 (${BALANCE.kan.counter.minDamage}~${BALANCE.kan.counter.maxDamage})` },
     ],
@@ -2099,6 +2099,14 @@ const SKILLS = {
         const toR  = Math.atan2(R.y - L.y, R.x - L.x);
         const diff = Math.abs(((toR - angle) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
         if (diff < B.halfAngle) hitRemote(B.meleeDamage);
+        if (R.elinSpirit) {
+        const _sd = Math.hypot(R.elinSpirit.x-L.x, R.elinSpirit.y-L.y);
+        if (_sd < B.meleeRange + BALANCE.elin.spirit.radius) {
+          const _sa = Math.atan2(R.elinSpirit.y-L.y, R.elinSpirit.x-L.x);
+          if (Math.abs((((_sa-angle)+Math.PI*3)%(Math.PI*2))-Math.PI) < B.halfAngle)
+            spiritHitRemote(B.meleeDamage);
+        }
+      }
         addFx({type:'swing', x:L.x, y:L.y, angle, range:B.meleeRange, halfAngle:B.halfAngle, dur:9, maxDur:9});
         send({type:'fx', fx:{type:'swing', x:L.x, y:L.y, angle, range:B.meleeRange, halfAngle:B.halfAngle, dur:9, maxDur:9}});
       } else {
@@ -2175,6 +2183,7 @@ const SKILLS = {
       const localY = dx*-sin + dy*cos;   // 수직방향
       // 판정은 시각보다 너그럽게: 폭 1.6배, 앞 시작점 -B.width*0.5 여유, 끝 1.1배
       if (localX > -R.radius && localX < len + R.radius && Math.abs(localY) < B.width + R.radius) hitRemote(damage);
+      checkSpiritHitRect(L.x, L.y, cos, sin, len, B.width, damage);
 
       const col = t > 0.8 ? '210,140,60' : t > 0.4 ? '180,110,45' : '150,85,35';
       addFx({type:'drillHit', x:L.x, y:L.y, angle, len, width:B.width, col, dur:10, maxDur:10});
@@ -2267,6 +2276,14 @@ const SKILLS = {
           }
           hitRemote(dmg);
           hit = true;
+        }
+      }
+      if (R.elinSpirit) {
+        const _sd = Math.hypot(R.elinSpirit.x-L.x, R.elinSpirit.y-L.y);
+        if (_sd < B.meleeRange + BALANCE.elin.spirit.radius) {
+          const _sa = Math.atan2(R.elinSpirit.y-L.y, R.elinSpirit.x-L.x);
+          if (Math.abs((((_sa-angle)+Math.PI*3)%(Math.PI*2))-Math.PI) < B.halfAngle)
+            spiritHitRemote(dmg);
         }
       }
       const col = L._tauOveleucharge ? '255,255,0' : '0,255,255';
@@ -2400,6 +2417,7 @@ const SKILLS = {
     // lmbStart: mousedown에서 직접 호출
     lmbStart() {
       if (!gameOn || L.lmbCooldown > 0 || L._mhCharging) return;
+      if (L.stunEnd && performance.now() < L.stunEnd) return;
       L._mhCharging = true;
       L._mhChargeStart = performance.now();
     },
@@ -2421,6 +2439,7 @@ const SKILLS = {
           hitRemote(B.lmbCharge.damage);
           bindRemote(B.lmbCharge.bindDur);
         }
+        checkSpiritHitRect(L.x, L.y, cos, sin, B.lmbCharge.length, B.lmbCharge.width, B.lmbCharge.damage);
         addFx({type:'ropeSlam', x:L.x, y:L.y, angle, len:B.lmbCharge.length, width:B.lmbCharge.width, dur:12, maxDur:12});
         send({type:'fx', fx:{type:'ropeSlam', x:L.x, y:L.y, angle, len:B.lmbCharge.length, width:B.lmbCharge.width, dur:12, maxDur:12}});
         L.lmbCooldown = B.lmbCharge.cd; L.lastAttackTime = performance.now();
@@ -2434,6 +2453,14 @@ const SKILLS = {
           const diff = Math.abs(((toR - swingAngle) + Math.PI*3) % (Math.PI*2) - Math.PI);
           if (diff < B.lmb.halfAngle) hitRemote(B.lmb.damage);
         }
+        if (R.elinSpirit) {
+        const _sd = Math.hypot(R.elinSpirit.x-L.x, R.elinSpirit.y-L.y);
+        if (_sd < B.lmb.meleeRange + BALANCE.elin.spirit.radius) {
+          const _sa = Math.atan2(R.elinSpirit.y-L.y, R.elinSpirit.x-L.x);
+          if (Math.abs((((_sa-swingAngle)+Math.PI*3)%(Math.PI*2))-Math.PI) < B.lmb.halfAngle)
+            spiritHitRemote(B.lmb.damage);
+        }
+      }
         addFx({type:'ropeSwing', x:L.x, y:L.y, angle:swingAngle, range:B.lmb.meleeRange, halfAngle:B.lmb.halfAngle, dur:10, maxDur:10});
         send({type:'fx', fx:{type:'ropeSwing', x:L.x, y:L.y, angle:swingAngle, range:B.lmb.meleeRange, halfAngle:B.lmb.halfAngle, dur:10, maxDur:10}});
         L.lmbCooldown = B.lmb.cd; L.lastAttackTime = performance.now();
@@ -2531,6 +2558,14 @@ const SKILLS = {
         const toR=Math.atan2(R.y-L.y,R.x-L.x);
         const diff=Math.abs(((toR-angle)+Math.PI*3)%(Math.PI*2)-Math.PI);
         if (diff < B.lmb.halfAngle) hitRemote(B.lmb.damage);
+      }
+      if (R.elinSpirit) {
+        const _sd = Math.hypot(R.elinSpirit.x-L.x, R.elinSpirit.y-L.y);
+        if (_sd < B.lmb.meleeRange + BALANCE.elin.spirit.radius) {
+          const _sa = Math.atan2(R.elinSpirit.y-L.y, R.elinSpirit.x-L.x);
+          if (Math.abs((((_sa-angle)+Math.PI*3)%(Math.PI*2))-Math.PI) < B.lmb.halfAngle)
+            spiritHitRemote(B.lmb.damage);
+        }
       }
       // 스윙 범위 내 투사체 즉시 소거 + 상대방 localBullets에서도 제거
       const cancelledIds = [];
@@ -2825,6 +2860,14 @@ const SKILLS = {
           hitRemote(dmg);
         }
       }
+      if (R.elinSpirit) {
+        const _sd = Math.hypot(R.elinSpirit.x-L.x, R.elinSpirit.y-L.y);
+        if (_sd < B.meleeRange + BALANCE.elin.spirit.radius) {
+          const _sa = Math.atan2(R.elinSpirit.y-L.y, R.elinSpirit.x-L.x);
+          if (Math.abs((((_sa-angle)+Math.PI*3)%(Math.PI*2))-Math.PI) < B.halfAngle)
+            spiritHitRemote(B.damage);
+        }
+      }
       addFx({type:'maisilSlash', x:L.x, y:L.y, angle, range:B.meleeRange, halfAngle:B.halfAngle, centerAngle:B.centerAngle, dur:10, maxDur:10});
       send({type:'fx', fx:{type:'maisilSlash', x:L.x, y:L.y, angle, range:B.meleeRange, halfAngle:B.halfAngle, centerAngle:B.centerAngle, dur:10, maxDur:10}});
       L.lmbCooldown = B.cd; L.lastAttackTime = performance.now();
@@ -3039,6 +3082,14 @@ const SKILLS = {
           const diff = Math.abs(((toR-swingAngle)+Math.PI*3)%(Math.PI*2)-Math.PI);
           if (diff < bl.halfAngle) { hitRemote(bl.damage); reikaApplyBurn(bl.burnDur); }
         }
+        if (R.elinSpirit) {
+        const _sd = Math.hypot(R.elinSpirit.x-L.x, R.elinSpirit.y-L.y);
+        if (_sd < bl.range + BALANCE.elin.spirit.radius) {
+          const _sa = Math.atan2(R.elinSpirit.y-L.y, R.elinSpirit.x-L.x);
+          if (Math.abs((((_sa-angle + bl.bias)+Math.PI*3)%(Math.PI*2))-Math.PI) < bl.halfAngle)
+            spiritHitRemote(bl.damage);
+        }
+      }
         // 파동 원형 범위
         if (Math.hypot(R.x-L.x, R.y-L.y) < bl.waveRange + R.radius) {
           hitRemote(5); reikaApplyBurn(bl.burnDur);
@@ -3065,6 +3116,14 @@ const SKILLS = {
             const diff = Math.abs(((toR-swingAngle)+Math.PI*3)%(Math.PI*2)-Math.PI);
             if (diff < lmb.halfAngle) hitRemote(lmb.damage);
           }
+          if (R.elinSpirit) {
+        const _sd = Math.hypot(R.elinSpirit.x-L.x, R.elinSpirit.y-L.y);
+        if (_sd < lmb.range + BALANCE.elin.spirit.radius) {
+          const _sa = Math.atan2(R.elinSpirit.y-L.y, R.elinSpirit.x-L.x);
+          if (Math.abs((((_sa-angle + lmb.bias)+Math.PI*3)%(Math.PI*2))-Math.PI) < lmb.halfAngle)
+            spiritHitRemote(lmb.damage);
+        }
+      }
           // 약간 전진
           const tx = Math.max(L.radius, Math.min(WORLD_W-L.radius, L.x+Math.cos(angle)*lmb.advanceDist));
           const ty = Math.max(L.radius, Math.min(WORLD_H-L.radius, L.y+Math.sin(angle)*lmb.advanceDist));
@@ -3279,6 +3338,7 @@ const SKILLS = {
       const dx = R.x - L.x, dy = R.y - L.y;
       const lx = dx*cos + dy*sin, ly = dx*(-sin) + dy*cos;
       if (lx > -R.radius && lx < B.meleeRange + R.radius && Math.abs(ly) < B.width + R.radius) hitRemote(B.damage);
+      checkSpiritHitRect(L.x, L.y, cos, sin, B.meleeRange, B.width, B.damage);
       addFx({type:'phasePunch', x:L.x, y:L.y, angle, len:B.meleeRange, width:B.width, dur:7, maxDur:7});
       send({type:'fx', fx:{type:'phasePunch', x:L.x, y:L.y, angle, len:B.meleeRange, width:B.width, dur:7, maxDur:7}});
       // 체력 비율에 따라 쿨다운 감소 (낮을수록 빠름)
@@ -3366,6 +3426,14 @@ const SKILLS = {
           hitRemote(dmg);
           L._kanGauge = Math.min(BALANCE.kan.gaugeMax, gauge + B.gaugeGain);
           hit = true;
+        }
+      }
+      if (R.elinSpirit) {
+        const _sd = Math.hypot(R.elinSpirit.x-L.x, R.elinSpirit.y-L.y);
+        if (_sd < B.meleeRange + BALANCE.elin.spirit.radius) {
+          const _sa = Math.atan2(R.elinSpirit.y-L.y, R.elinSpirit.x-L.x);
+          if (Math.abs((((_sa-angle)+Math.PI*3)%(Math.PI*2))-Math.PI) < B.halfAngle)
+            spiritHitRemote(Math.round(B.baseDamage + B.gaugeDamage * ((L._kanGauge||0) / BALANCE.kan.gaugeMax)));
         }
       }
       const col = hit ? '80,220,120' : '40,160,80';
@@ -3496,13 +3564,14 @@ CANVAS.addEventListener('mousemove', e => {
   mouseScreenY = e.clientY - r.top;
 });
 CANVAS.addEventListener('mousedown', e => {
+  _sfxCtx.state === 'suspended' && _sfxCtx.resume();
   if (!gameOn) return; e.preventDefault();
   if (e.button===0) {
     mouseDown=true;
     if (L.charDef?.id==='mainmad') {
-      if (L.lmbCooldown<=0 && !L.burrowing) SKILLS.mainmad.lmb(getAngle());
+      if (L.lmbCooldown<=0 && !L.burrowing && !(L.stunEnd && performance.now()<L.stunEnd)) SKILLS.mainmad.lmb(getAngle());
     } else if (L.charDef?.id==='mehugu') {
-      SKILLS.mehugu.lmbStart();
+      if (!(L.stunEnd && performance.now()<L.stunEnd)) SKILLS.mehugu.lmbStart();
     } else {
       doLMB();
     }
@@ -3513,15 +3582,16 @@ CANVAS.addEventListener('mouseup', e => {
   if (e.button===0) {
     mouseDown=false;
     if (gameOn && L.charDef?.id==='mainmad') {
-      SKILLS.mainmad.lmbRelease(getAngle());
+      if (!(L.stunEnd && performance.now()<L.stunEnd)) SKILLS.mainmad.lmbRelease(getAngle());
     } else if (gameOn && L.charDef?.id==='mehugu') {
       // 메후구: 차징 해제 → 발동
-      SKILLS.mehugu.lmbRelease(getAngle());
+      if (!(L.stunEnd && performance.now()<L.stunEnd)) SKILLS.mehugu.lmbRelease(getAngle());
     }
   }
 });
 CANVAS.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('keydown', e => {
+  _sfxCtx.state === 'suspended' && _sfxCtx.resume();
   keys[e.key.toLowerCase()]=true;
   if (e.code==='Space') { e.preventDefault(); tryDodge(); }
   if (e.code==='ShiftLeft' && gameOn) {
@@ -5548,6 +5618,8 @@ function loop() {
     // 레이저 FX (매 프레임)
     addFx({type:'erapabiMegaLaser', x:L.x, y:L.y, angle:L._erapabiLaserAngle,
            width:BL.width, range:BL.range, dur:2, maxDur:2});
+    send({type:'fx', fx:{type:'erapabiMegaLaser', x:L.x, y:L.y, angle:L._erapabiLaserAngle,
+           width:BL.width, range:BL.range, dur:2, maxDur:2}});
   }
 
   // 메후구 로프 선 실시간 충돌 감지 (플레이어↔구체 선분 vs 적)
