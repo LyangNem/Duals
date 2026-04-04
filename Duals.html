@@ -149,13 +149,13 @@ input[type=text]:focus{border-color:#4af;}
       <div><span style="color:#99b;min-width:110px;display:inline-block;">SPACE</span>회피 (스테미나 40 소모)</div>
       <div><span style="color:#99b;min-width:110px;display:inline-block;">L-SHIFT</span>반격 — 저스트 회피 후 사용</div>
       <div style="color:#4af;letter-spacing:3px;font-size:11px;margin:10px 0 6px;">── 시스템 ──</div>
-      <div><span style="color:#99b;min-width:110px;display:inline-block;">저스트 회피</span>공격 회피 → 반격기 활성화</div>
-      <div><span style="color:#99b;min-width:110px;display:inline-block;">스테미나</span>자동 회복</div>
-      <div><span style="color:#99b;min-width:110px;display:inline-block;">체력 회복</span>5초간 미전투 시 10%/s 자연 회복</div>
+      <div><span style="color:#99b;min-width:110px;display:inline-block;">저스트 회피</span>투사체에 스치며 회피 → 반격 게이지 획득</div>
+      <div><span style="color:#99b;min-width:110px;display:inline-block;">스테미나</span>잠시 후 자동 회복</div>
+      <div><span style="color:#99b;min-width:110px;display:inline-block;">체력 회복</span>5초간 전투 없으면 10%/초 자연 회복</div>
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.14.2</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.14.3</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -2009,6 +2009,7 @@ const SKILLS = {
       const fa=angle, tok=++L._counterToken;
       setTimeout(() => {
         if (!gameOn || L._counterToken!==tok) return;
+        const fa = getAngle();
         L.color=L.defaultColor; L._preFlashColor=null; send({type:'colorChange', color:L.defaultColor});
         fireShotgun(fa, {pellets:B.pellets, spread:B.spread, speed:B.speed, radius:B.radius, damage:B.damage, maxRange:B.range, knockbackPower:B.knockbackPower});
         addFx({type:'counter', x:L.x, y:L.y, r:0, maxR:50, dur:15, maxDur:15});
@@ -2069,6 +2070,7 @@ const SKILLS = {
       const fa=angle, tok=++L._counterToken;
       setTimeout(() => {
         if (!gameOn || L._counterToken!==tok) return;
+        const fa = getAngle();
         L.color=L.defaultColor; L._preFlashColor=null; send({type:'colorChange', color:L.defaultColor});
         const cos=Math.cos(fa), sin=Math.sin(fa);
         const dx=R.x-L.x, dy=R.y-L.y;
@@ -2365,10 +2367,11 @@ const SKILLS = {
       L.counterReady = false; L.lmbCooldown = B.cd; L.rmbCooldown = B.cd;
       L.color = '#ffd700'; send({type:'colorChange', color:'#ffd700'});
       addFx({type:'counterCharge', x:L.x, y:L.y, r:32, maxR:32, dur:18, maxDur:18});
-      const fa = angle, sx = L.x, sy = L.y;
+      const sx = L.x, sy = L.y;
       const tok=++L._counterToken;
       setTimeout(() => {
         if (!gameOn || L._counterToken!==tok) return;
+        const fa = getAngle();
         L.color = L.defaultColor; L._preFlashColor = null; send({type:'colorChange', color:L.defaultColor});
         let didKnockback = false;
         for (let i = 0; i < B.count; i++) {
@@ -2457,6 +2460,7 @@ const SKILLS = {
 
       const doSwing = (swingNum) => {
         if (!gameOn || L._counterToken !== tok) return;
+        const angle = getAngle();
         if (swingNum === 2) {
           L.color = L.defaultColor; L._preFlashColor = null;
           send({type:'colorChange', color:L.defaultColor});
@@ -2573,6 +2577,7 @@ const SKILLS = {
       const fa=angle, tok=++L._counterToken;
       setTimeout(()=>{
         if(!gameOn||L._counterToken!==tok)return;
+        const fa = getAngle();
         L.color=L.defaultColor; L._preFlashColor=null; send({type:'colorChange',color:L.defaultColor});
         const cos=Math.cos(fa), sin=Math.sin(fa);
         // 적 일자 판정
@@ -2775,6 +2780,7 @@ const SKILLS = {
       addFx({type:'counterCharge', x:L.x, y:L.y, r:26, maxR:26, dur:12, maxDur:12});
       setTimeout(() => {
         if (!gameOn || L._counterToken !== tok) return;
+        const angle = getAngle();
         // 8발을 spread 범위 내 균등 간격으로, 항상 같은 순서(좌→우)
         const kbRef = {fired: false, power: B.knockbackPower};
         const burstId = uid(); // 8발 공유 버스트 ID
@@ -2864,6 +2870,7 @@ const SKILLS = {
       const tok = ++L._counterToken;
       setTimeout(() => {
         if (!gameOn || L._counterToken !== tok) return;
+        const angle = getAngle();
         L.color = L.defaultColor; L._preFlashColor = null; send({type:'colorChange', color:L.defaultColor});
         // 귀환형 대형 구체 생성
         const sc = {
@@ -2979,6 +2986,7 @@ const SKILLS = {
       // 앞쪽 판정
       setTimeout(() => {
         if (!gameOn || L._counterToken !== tok) return;
+        const angle = getAngle();
         L.color = L.defaultColor; L._preFlashColor = null; send({type:'colorChange', color:L.defaultColor});
         const dist = Math.hypot(R.x - L.x, R.y - L.y);
         if (dist < B.frontRange + R.radius) {
@@ -2994,6 +3002,7 @@ const SKILLS = {
       // 뒤쪽 판정
       setTimeout(() => {
         if (!gameOn || L._counterToken !== tok) return;
+        const angle = getAngle();
         const backAngle = angle + Math.PI;
         const dist = Math.hypot(R.x - L.x, R.y - L.y);
         if (dist < B.backRange + R.radius) {
@@ -3168,6 +3177,7 @@ const SKILLS = {
       const tok = ++L._counterToken;
       setTimeout(() => {
         if (!gameOn || L._counterToken !== tok) return;
+        const angle = getAngle();
         L.color = L.defaultColor; L._preFlashColor = null; send({type:'colorChange', color:L.defaultColor});
         const tx = Math.max(L.radius, Math.min(WORLD_W-L.radius, L.x+Math.cos(angle)*CB.range));
         const ty = Math.max(L.radius, Math.min(WORLD_H-L.radius, L.y+Math.sin(angle)*CB.range));
@@ -3239,6 +3249,7 @@ const SKILLS = {
       const fa = angle, tok = ++L._counterToken;
       setTimeout(() => {
         if (!gameOn || L._counterToken !== tok) return;
+        const fa = getAngle();
         L.color = L.defaultColor; L._preFlashColor = null; send({type:'colorChange', color:L.defaultColor});
         // 첫 번째 탕!
         fireShotgun(fa, {pellets:B.pellets, spread:B.spread, speed:B.speed, radius:B.radius, damage:B.damage, maxRange:B.range, knockbackPower:B.knockbackPower});
@@ -3311,6 +3322,7 @@ const SKILLS = {
       const fa = angle, tok = ++L._counterToken;
       setTimeout(() => {
         if (!gameOn || L._counterToken !== tok) return;
+        const fa = getAngle();
         L.color = L.defaultColor; L._preFlashColor = null; send({type:'colorChange', color:L.defaultColor});
         // 일자 판정
         const cos2 = Math.cos(fa), sin2 = Math.sin(fa);
