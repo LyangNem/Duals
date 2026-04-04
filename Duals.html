@@ -71,11 +71,10 @@ input[type=text]:focus{border-color:#4af;}
 .char-name{font-size:1.1em;letter-spacing:2px;margin-bottom:6px;}
 .char-stats{font-size:11px;color:#667;line-height:1.9;text-align:left;margin-top:6px;}
 .char-stats b{color:#99b;}
-.char-tooltip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;
-              transform:translateX(-50%);background:#0d1520;border:1px solid #2a3a4a;
+.char-tooltip{display:none;position:fixed;background:#0d1520;border:1px solid #2a3a4a;
               border-radius:4px;padding:10px 14px;font-size:11px;color:#778;
-              white-space:nowrap;z-index:99;pointer-events:none;line-height:1.7;text-align:left;}
-.char-card:hover .char-tooltip{display:block;}
+              z-index:999;pointer-events:none;line-height:1.7;text-align:left;
+              white-space:nowrap;}
 
 /* ── 캐릭터 선택 화면: 항상 스크롤 가능 ── */
 #scr-select {
@@ -150,13 +149,13 @@ input[type=text]:focus{border-color:#4af;}
       <div><span style="color:#99b;min-width:110px;display:inline-block;">SPACE</span>회피 (스테미나 40 소모)</div>
       <div><span style="color:#99b;min-width:110px;display:inline-block;">L-SHIFT</span>반격 — 저스트 회피 후 사용</div>
       <div style="color:#4af;letter-spacing:3px;font-size:11px;margin:10px 0 6px;">── 시스템 ──</div>
-      <div><span style="color:#99b;min-width:110px;display:inline-block;">저스트 회피</span>정확한 타이밍에 공격 회피 → 반격기 활성화</div>
+      <div><span style="color:#99b;min-width:110px;display:inline-block;">저스트 회피</span>공격 회피 → 반격기 활성화</div>
       <div><span style="color:#99b;min-width:110px;display:inline-block;">스테미나</span>자동 회복</div>
-      <div><span style="color:#99b;min-width:110px;display:inline-block;">체력 회복</span>5초간 전투 없으면 10%/s 자연 회복</div>
+      <div><span style="color:#99b;min-width:110px;display:inline-block;">체력 회복</span>5초간 미전투 시 10%/s 자연 회복</div>
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.14.0</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.14.2</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -890,28 +889,28 @@ const BALANCE = {
     gaugeDrainRate:  10,    // 초당 감소량
 
     lmb: {
-      cost:        25,
+      cost:        20,
       meleeRange:  130,
-      halfAngle:   0.55,
+      halfAngle:   0.45,
       baseDamage:  10,
       gaugeDamage: 30,    // 게이지 100%시 추가 최대 피해
       gaugeGain:   15,    // 적중시 게이지 상승
-      cd:          500,
+      cd:          350,
     },
     rmb: {
       cost:              50,
       pullRange:         130,
       pullDur:           280,  // 끌어당기기 이동 시간
-      lockDur:           1000,  // 쌍방 행동불능 시간
-      knockbackPower:    1000,
-      knockbackStunDur:  1500,
+      lockDur:           500,  // 쌍방 행동불능 시간
+      knockbackPower:    580,
+      knockbackStunDur:  1200,
       cd:                1200,
     },
     counter: {
-      minRange:    100,
-      maxRange:    300,
+      minRange:    80,
+      maxRange:    280,
       minDamage:   10,
-      maxDamage:   90,
+      maxDamage:   70,
       minKbPower:  200,
       maxKbPower:  700,
       cd:          300,
@@ -1707,6 +1706,26 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.char-card').forEach(c => c.classList.remove('sel'));
       card.classList.add('sel'); selCharId = ch.id;
     };
+    card.addEventListener('mouseenter', e => {
+      const tip = card.querySelector('.char-tooltip');
+      if (!tip) return;
+      tip.style.display = 'block';
+      const tr = tip.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const cr = card.getBoundingClientRect();
+      // 가로: 카드 중앙 기준, 화면 밖이면 보정
+      let left = cr.left + cr.width/2 - tr.width/2;
+      left = Math.max(8, Math.min(vw - tr.width - 8, left));
+      // 세로: 카드 아래 우선, 공간 없으면 위
+      let top = cr.bottom + 8;
+      if (top + tr.height > vh - 8) top = cr.top - tr.height - 8;
+      tip.style.left = left + 'px';
+      tip.style.top  = top  + 'px';
+    });
+    card.addEventListener('mouseleave', () => {
+      const tip = card.querySelector('.char-tooltip');
+      if (tip) tip.style.display = 'none';
+    });
     grid.appendChild(card);
   });
 });
