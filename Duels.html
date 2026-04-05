@@ -945,8 +945,8 @@ const BALANCE = {
       spread:         0.50,
       speed:          20,
       radius:         7,
-      damage:         12,
-      range:          380,
+      damage:         5,
+      range:          200,
       knockbackPower: 580,
       cd:             900,
     },
@@ -1215,7 +1215,7 @@ const CHARACTERS = {
     maxHealth: BALANCE.phase.hp,
     speed:     BALANCE.phase.speed,
     radius:    BALANCE.phase.radius,
-    statsText: [['체력', String(BALANCE.phase.hp)],['이동속도','보통'],['스타일','버서커형 근거리 딜러']],
+    statsText: [['체력', String(BALANCE.phase.hp)],['이동속도','보통'],['스타일','버서커형 근거리 암살자']],
     desc:      '빠른 속공으로 적을 한번에 처치하는 캐릭터',
     skills: [
       { key:'LMB',     name:'패스트 펀치', cost:BALANCE.phase.lmb.cost,  desc:`근거리 연속 펀치. 체력이 낮을수록 연사속도 증가 (${BALANCE.phase.lmb.damage})` },
@@ -1231,7 +1231,7 @@ const CHARACTERS = {
     maxHealth: BALANCE.kan.hp,
     speed:     BALANCE.kan.speed,
     radius:    BALANCE.kan.radius,
-    statsText: [['체력', String(BALANCE.kan.hp)],['이동속도','매우 빠름'],['스타일','게이지형 근거리 파이터']],
+    statsText: [['체력', String(BALANCE.kan.hp)],['이동속도','매우 빠름'],['스타일','게이지형 근거리 딜러']],
     desc:      '악식 게이지를 쌓아 강력한 충격파를 발산하는 캐릭터',
     skills: [
       { key:'LMB',     name:'악식 건틀렛', cost:BALANCE.kan.lmb.cost,
@@ -1504,12 +1504,12 @@ const cam = {x:0, y:0};
 // ── 효과음 (Web Audio API — 저지연) ─────────────────────
 const _sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
 let _hitBuffer = null;
-fetch('https://Lyangnem.github.io/duels/hitted.mp3')
+fetch('https://Lyangnem.github.io/Duels/hitted.mp3')
   .then(r => r.arrayBuffer())
   .then(buf => _sfxCtx.decodeAudioData(buf))
   .then(decoded => { _hitBuffer = decoded; })
   .catch(() => {});
-function playHitSfx() {
+function playHitSfx() {ㅈ
   if (!_hitBuffer) return;
   const src = _sfxCtx.createBufferSource();
   const gain = _sfxCtx.createGain();
