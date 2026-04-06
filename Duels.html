@@ -143,7 +143,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.15.9</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.15.6</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -1193,7 +1193,7 @@ const CHARACTERS = {
     maxHealth: BALANCE.kan.hp,
     speed:     BALANCE.kan.speed,
     radius:    BALANCE.kan.radius,
-    statsText: [['체력', String(BALANCE.kan.hp)],['이동속도','매우 빠름'],['스타일','게이지형 근거리 딜러']],
+    statsText: [['체력', String(BALANCE.kan.hp)],['이동속도','매우 빠름'],['스타일','악식형 근거리 딜러']],
     desc:      '악식 게이지를 쌓아 강력한 충격파를 발산하는 캐릭터',
     skills: [
       { key:'LMB',     name:'악식 건틀렛', cost:BALANCE.kan.lmb.cost,
@@ -1220,7 +1220,7 @@ const CHARACTERS = {
       { key:'RMB',     name:'물러서!', cost:BALANCE.cherity.rmb.cost,
         desc:`후방으로 슬라이딩 후 근거리 대응 산탄 발사. 적중 시 강한 넉백 (${BALANCE.cherity.rmb.damage})` },
       { key:'L-Shift', name:'연막탄',  cost:0,
-        desc:`연막탄 투척. 착탄 시 범위 내 피해(${BALANCE.cherity.counter.damage}) 및 넉백. 연막 내 플레이어는 은신. 가까운 적은 확인 가능` },
+        desc:`연막탄 투척. 착탄 시 범위 내 피해 및 넉백. 연막 내 플레이어는 은신. 가까운 적은 확인 가능 (${BALANCE.cherity.counter.damage})` },
     ],
   },
 };
@@ -5305,9 +5305,9 @@ function drawPlayer(p, label) {
   if (isBurningP) {
     const pulseF=0.5+0.5*Math.sin(performance.now()*0.018);
     ctx.beginPath(); ctx.arc(p.x,p.y,p.radius+10,0,Math.PI*2);
-    ctx.strokeStyle=`rgba(255,90,0,${0.7+0.3*pulseF})`; ctx.lineWidth=3;
+    ctx.strokeStyle=`rgba(255,150,0,${0.7+0.3*pulseF})`; ctx.lineWidth=3;
     ctx.setLineDash([5,3]); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle='rgba(255,120,0,0.95)'; ctx.font='bold 13px Courier New'; ctx.textAlign='center';
+    ctx.fillStyle='rgba(255,165,0,0.95)'; ctx.font='bold 13px Courier New'; ctx.textAlign='center';
     ctx.fillText('BURN', p.x, p.y-p.radius-16);
   }
 
