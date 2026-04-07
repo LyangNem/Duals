@@ -206,7 +206,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.1.2</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.1.4</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -348,6 +348,7 @@ input[type=text]:focus{border-color:#4af;}
 // 모바일 감지 — PC 전용 게임
 // ============================================================
 (function() {
+  if (new URLSearchParams(location.search).get('force') === '1') return; // 강제 접속
   var ua = navigator.userAgent;
   var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
                || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
@@ -359,7 +360,14 @@ input[type=text]:focus{border-color:#4af;}
       + '<div style="font-size:.9em;color:#778;letter-spacing:2px;line-height:2.4;">'
       + '이 게임은 PC에서만 플레이 가능합니다.<br>키보드와 마우스가 필요합니다.<br><br>'
       + '<span style="color:#556;">This game requires keyboard &amp; mouse.<br>Please play on a PC.</span>'
-      + '</div></div>';
+      + '</div>'
+      + '<div style="margin-top:32px;">'
+      + '<a href="' + location.pathname + '?force=1" '
+      + 'style="font-size:12px;color:#556;letter-spacing:2px;text-decoration:underline;text-underline-offset:3px;">'
+      + '무시하고 접속합니다.'
+      + '</a>'
+      + '</div>'
+      + '</div>';
     throw new Error('Mobile not supported');
   }
 })();
@@ -674,7 +682,7 @@ const BALANCE = {
       radius:         10,
       range:          1100,
       explosionRange: 80,
-      damage:         18,
+      damage:         10,
       healAmount:     25,   // 폭발 범위 내 유령 회복
       cd:             600,
     },
@@ -701,10 +709,10 @@ const BALANCE = {
       radius:        18,
       meleeRange:    80,    // 공격 사거리 (접촉 없이 공격)
       meleeHalfAngle: Math.PI / 2, // 반원형 (앞쪽 180°)
-      meleeDamage:   12,
+      meleeDamage:   10,
       meleeInterval: 1200,
       stopRange:     90,    // 이 거리 이내면 추격 중단
-      dashDamage:    30,
+      dashDamage:    10,
       dashKnockback: 260,
       dashDur:       350,
     },
@@ -1247,7 +1255,7 @@ const CHARACTERS = {
     desc:      '로켓포로 게임을 끝장내는 캐릭터',
     skills: [
       { key:'LMB',     name:'초콜릿 쌍권총',    cost:BALANCE.veleu.lmb.cost, desc:`쌍권총 3발 발사 (탄당 ${BALANCE.veleu.lmb.damage}).` },
-      { key:'RMB',     name:'초콜릿 로켓포',    cost:'전량', desc:`강력한 초콜릿 로켓 발사. 폭발 범위 내 피해 및 발사 지점에 ${BALANCE.veleu.rmb.slowDur/1000}초 슬로우 지대, 근접 적중 시 기절 (${BALANCE.veleu.rmb.explosionDamage})` },
+      { key:'RMB',     name:'초콜릿 로켓포',    cost:200, desc:`스테미나 200 소모. 강력한 초콜릿 로켓 발사. 폭발 범위 내 피해 및 발사 지점에 ${BALANCE.veleu.rmb.slowDur/1000}초 슬로우 지대, 근접 적중 시 기절 (${BALANCE.veleu.rmb.explosionDamage})` },
       { key:'L-Shift', name:'초콜릿 폭탄 투척', cost:0, desc:`전방에 초콜릿 폭탄 ${BALANCE.veleu.counter.count}개를 일렬로 투척 (탄당 ${BALANCE.veleu.counter.damage})` },
     ],
   },
@@ -1264,8 +1272,8 @@ const CHARACTERS = {
     skills: [
       { key:'LMB', name:'유령구체', cost: BALANCE.elin.lmb.cost,
         desc:`벽과 적을 관통하는 구체 발사. 탄착지점에서 폭발해 피해. 범위 내 유령은 ${BALANCE.elin.lmb.healAmount} 체력 회복(${BALANCE.elin.lmb.damage})` },
-      { key:'RMB', name:'유령친구', cost: 200,
-        desc:`스테미나 전량 소모해 유령 소환. 유령이 있으면 스테미나 소모 없이 가장 가까운 적에게 돌진 명령 (${BALANCE.elin.spirit.dashDamage})` },
+      { key:'RMB', name:'유령친구', cost: '200/20',
+        desc:`스테미나 200 소모해 유령 소환. 유령이 있으면 스테미나 20 소모로 가장 가까운 적에게 돌진 명령 (${BALANCE.elin.spirit.dashDamage})` },
       { key:'L-Shift', name:'죽지말아줘!', cost: 0,
         desc:`유령을 향해 투사체 발사. 도달 시 유령 ${BALANCE.elin.counter.healAmount} 회복. 유령 및 엘린 위치 폭발 및 넉백 (${BALANCE.elin.counter.damage})` },
     ],
@@ -1845,7 +1853,7 @@ function setupConn() {
     showScr('scr-select');
   });
   conn.on('data',  onData);
-  conn.on('close', () => { if (gameOn) alert('상대방 연결 끊김'); });
+  conn.on('close', () => { alert('상대방 연결 끊김'); });
 }
 function copyCode() {
   const code = document.getElementById('code-display').textContent;
@@ -1885,13 +1893,25 @@ function onData(d) {
         for (const md of incoming) {
           const exist = peerMinions.find(pm => pm.id === md.id);
           if (exist) {
-            // tx/ty를 목표 위치로 설정 — 매 프레임 보간으로 부드럽게 이동
             exist.tx = md.x; exist.ty = md.y;
             exist.hp = md.hp; exist.maxHp = md.maxHp;
+            // CC 상태 동기화 (절대 만료 시각으로 변환)
+            const pnow = performance.now();
+            exist._stunEnd   = md.stunRemaining   > 0 ? pnow + md.stunRemaining   : 0;
+            exist._bindEnd   = md.bindRemaining   > 0 ? pnow + md.bindRemaining   : 0;
+            exist._burnEnd   = md.burnRemaining   > 0 ? pnow + md.burnRemaining   : 0;
+            exist._poisonEnd = md.poisonRemaining > 0 ? pnow + md.poisonRemaining : 0;
+            exist._slowEnd   = md.slowRemaining   > 0 ? pnow + md.slowRemaining   : 0;
             nextPeer.push(exist);
           } else {
-            // 신규 소환수: 즉시 배치 후 tx/ty 초기화
-            nextPeer.push({ ...md, tx: md.x, ty: md.y });
+            const pnow = performance.now();
+            const nm = { ...md, tx: md.x, ty: md.y };
+            nm._stunEnd   = md.stunRemaining   > 0 ? pnow + md.stunRemaining   : 0;
+            nm._bindEnd   = md.bindRemaining   > 0 ? pnow + md.bindRemaining   : 0;
+            nm._burnEnd   = md.burnRemaining   > 0 ? pnow + md.burnRemaining   : 0;
+            nm._poisonEnd = md.poisonRemaining > 0 ? pnow + md.poisonRemaining : 0;
+            nm._slowEnd   = md.slowRemaining   > 0 ? pnow + md.slowRemaining   : 0;
+            nextPeer.push(nm);
           }
         }
         peerMinions = nextPeer;
@@ -2006,7 +2026,7 @@ function onData(d) {
     // ── 소환수 피해 수신 ──────────────────────────────────────
     case 'minionHit': {
       const lm = localMinions.find(m => m.id === d.id);
-      if (lm) damageLocalMinion(lm, d.damage);
+      if (lm) damageLocalMinion(lm, d.damage, d.cc);
       break;
     }
     case 'minionDied': {
@@ -2265,12 +2285,11 @@ function hitCtx(ctx, dmg) {
 }
 
 // ── R + 상대 소환수 판정 ────────────────────────────────────
-function hitCtxAll(ctx, dmg) {
+function hitCtxAll(ctx, dmg, cc) {
   let hit = hitCtx(ctx, dmg);
-  // 상대 소환수 판정 — 명중 시 minionHit 패킷 전송 (상대가 권위)
   for (const pm of peerMinions) {
     if (intersectsCtx(ctx, pm.x, pm.y, pm.radius)) {
-      send({ type: 'minionHit', id: pm.id, damage: dmg });
+      send({ type: 'minionHit', id: pm.id, damage: dmg, ...(cc ? {cc} : {}) });
       hit = true;
     }
   }
@@ -2278,11 +2297,11 @@ function hitCtxAll(ctx, dmg) {
 }
 
 // ── 상대 소환수만 판정 (플레이어 제외) ─────────────────────
-function hitCtxSpirit(ctx, dmg) {
+function hitCtxSpirit(ctx, dmg, cc) {
   let hit = false;
   for (const pm of peerMinions) {
     if (intersectsCtx(ctx, pm.x, pm.y, pm.radius)) {
-      send({ type: 'minionHit', id: pm.id, damage: dmg });
+      send({ type: 'minionHit', id: pm.id, damage: dmg, ...(cc ? {cc} : {}) });
       hit = true;
     }
   }
@@ -2442,6 +2461,12 @@ MINION_DEFS['elin_spirit'] = {
   tick(m, dt, physDt, now) {
     const BS = BALANCE.elin.spirit;
 
+    // ── CC 상태 체크 (기절·속박·화염·독 등 모든 CC)
+    if ((m._stunEnd   && now < m._stunEnd)   || (L.stunEnd && now < L.stunEnd))   return;
+    if ((m._bindEnd   && now < m._bindEnd)   || (L.bindEnd && now < L.bindEnd))   return;
+    if (m._burnEnd    && now < m._burnEnd)   return;
+    if (m._poisonEnd  && now < m._poisonEnd) return;
+
     // ── 돌진 처리
     if (m._dashing) {
       const t = Math.min(1, (now - m._dashStart) / BS.dashDur);
@@ -2474,15 +2499,29 @@ MINION_DEFS['elin_spirit'] = {
       if (d < nearDist) { nearDist = d; nearest = t; }
     }
 
-    // ── 추격: stopRange 바깥일 때만 이동
+    // ── 추격: stopRange 바깥일 때만 이동 (슬로우존 실시간 체크)
     if (nearest && nearDist > BS.stopRange) {
-      minionChaseNearest(m, dt);
+      const inSlow = [...localSlowZones, ...peerSlowZones].some(z =>
+        now < z.expiry && Math.hypot(m.x - z.x, m.y - z.y) < z.r + m.radius
+      );
+      if (inSlow) {
+        const origSpeed = m.speed;
+        m.speed = origSpeed * BALANCE.veleu.rmb.slowFactor;
+        minionChaseNearest(m, dt);
+        m.speed = origSpeed;
+      } else {
+        minionChaseNearest(m, dt);
+      }
     }
 
     // ── 반원형 히트스캔 공격 (쿨다운 체크)
     if (nearest && nearDist < BS.meleeRange + nearest.radius) {
       const cd = m._stateData;
-      if (!cd.meleeCd || now >= cd.meleeCd) {
+      // 사거리 도달 후 0.5초 딜레이
+      if (!cd._reachTime) cd._reachTime = now;
+      if (now - cd._reachTime < 500) {
+        // 대기 중 — 아직 공격 안 함
+      } else if (!cd.meleeCd || now >= cd.meleeCd) {
         const atkAngle = Math.atan2(nearest.y - m.y, nearest.x - m.x);
         let hit = false;
 
@@ -2516,7 +2555,10 @@ MINION_DEFS['elin_spirit'] = {
           addFx({type:'elinSpiritAtk', x:m.x, y:m.y, angle:atkAngle, range:BS.meleeRange, halfAngle:BS.meleeHalfAngle, dur:11, maxDur:11});
           send({type:'fx', fx:{type:'elinSpiritAtk', x:m.x, y:m.y, angle:atkAngle, range:BS.meleeRange, halfAngle:BS.meleeHalfAngle, dur:11, maxDur:11}});
         }
-      }
+      } // end if delay
+    } else {
+      // 사거리 벗어나면 도달 타임 리셋
+      if (m._stateData) m._stateData._reachTime = null;
     }
   },
 
@@ -2555,6 +2597,51 @@ MINION_DEFS['elin_spirit'] = {
     ctx.fillText('SPIRIT', m.x, m.y - m.radius - 24);
 
     ctx.globalAlpha = 1;
+
+    // CC 시각 표시
+    const now = performance.now();
+    ctx.globalAlpha = isPeer ? 0.8 : 1;
+    if (m._stunEnd && now < m._stunEnd) {
+      const p = 0.5+0.5*Math.sin(now*0.012);
+      ctx.beginPath(); ctx.arc(m.x, m.y, m.radius+8, 0, Math.PI*2);
+      ctx.strokeStyle=`rgba(239,68,68,${0.7+0.3*p})`; ctx.lineWidth=2.5;
+      ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='rgba(239,68,68,0.9)'; ctx.font='bold 9px Courier New'; ctx.textAlign='center';
+      ctx.fillText('STUN', m.x, m.y - m.radius - 12);
+    }
+    if (m._bindEnd && now < m._bindEnd) {
+      const p = 0.5+0.5*Math.sin(now*0.012);
+      ctx.beginPath(); ctx.arc(m.x, m.y, m.radius+8, 0, Math.PI*2);
+      ctx.strokeStyle=`rgba(56,189,248,${0.7+0.3*p})`; ctx.lineWidth=2.5;
+      ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='rgba(56,189,248,0.9)'; ctx.font='bold 9px Courier New'; ctx.textAlign='center';
+      ctx.fillText('BIND', m.x, m.y - m.radius - 12);
+    }
+    if (m._burnEnd && now < m._burnEnd) {
+      const p = 0.5+0.5*Math.sin(now*0.018);
+      ctx.beginPath(); ctx.arc(m.x, m.y, m.radius+11, 0, Math.PI*2);
+      ctx.strokeStyle=`rgba(255,150,0,${0.6+0.3*p})`; ctx.lineWidth=2;
+      ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='rgba(255,165,0,0.9)'; ctx.font='bold 9px Courier New'; ctx.textAlign='center';
+      ctx.fillText('BURN', m.x, m.y - m.radius - 22);
+    }
+    if (m._poisonEnd && now < m._poisonEnd) {
+      const p = 0.5+0.5*Math.sin(now*0.012);
+      ctx.beginPath(); ctx.arc(m.x, m.y, m.radius+14, 0, Math.PI*2);
+      ctx.strokeStyle=`rgba(50,200,80,${0.6+0.3*p})`; ctx.lineWidth=2;
+      ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='rgba(50,200,80,0.9)'; ctx.font='bold 9px Courier New'; ctx.textAlign='center';
+      ctx.fillText('독', m.x, m.y - m.radius - 32);
+    }
+    if (m._slowEnd && now < m._slowEnd) {
+      const p = 0.5+0.5*Math.sin(now*0.008);
+      ctx.beginPath(); ctx.arc(m.x, m.y, m.radius+17, 0, Math.PI*2);
+      ctx.strokeStyle=`rgba(130,180,255,${0.6+0.3*p})`; ctx.lineWidth=2;
+      ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='rgba(130,180,255,0.9)'; ctx.font='bold 9px Courier New'; ctx.textAlign='center';
+      ctx.fillText('SLOW', m.x, m.y - m.radius - 42);
+    }
+    ctx.globalAlpha = 1;
     ctx.restore();
   },
 
@@ -2587,18 +2674,29 @@ function spawnMinion(charId, type, x, y, overrides = {}) {
 }
 
 // ── 로컬 소환수 피해 처리 ───────────────────────────────────
-function damageLocalMinion(m, dmg) {
+function damageLocalMinion(m, dmg, cc) {
   if (!m || m.hp <= 0) return;
-  m.hp = Math.max(0, m.hp - dmg);
-  addFx({ type: 'hit', x: m.x, y: m.y, r: 0, maxR: m.radius * 1.5, dur: 8, maxDur: 8 });
-  playHitSfx();
+  if (dmg > 0) {
+    m.hp = Math.max(0, m.hp - dmg);
+    addFx({ type: 'hit', x: m.x, y: m.y, r: 0, maxR: m.radius * 1.5, dur: 8, maxDur: 8 });
+    playHitSfx();
+  }
+  // CC 적용
+  const now = performance.now();
+  if (cc) {
+    if (cc.stunDur)   m._stunEnd  = Math.max(m._stunEnd  ||0, now + cc.stunDur);
+    if (cc.bindDur)   m._bindEnd  = Math.max(m._bindEnd  ||0, now + cc.bindDur);
+    if (cc.burnDur)   m._burnEnd  = Math.max(m._burnEnd  ||0, now + cc.burnDur);
+    if (cc.poisonDur) m._poisonEnd= Math.max(m._poisonEnd||0, now + cc.poisonDur);
+    if (cc.slowDur)   m._slowEnd  = Math.max(m._slowEnd  ||0, now + cc.slowDur);
+  }
 }
 
-// ── 범위 내 적 소환수에 피해 (스킬에서 직접 호출) ──────────
-function hitPeerMinionsInRange(cx, cy, range, dmg) {
+// ── 범위 내 적 소환수에 피해+CC (스킬에서 직접 호출) ──────────
+function hitPeerMinionsInRange(cx, cy, range, dmg, cc) {
   for (const pm of peerMinions) {
     if (Math.hypot(pm.x - cx, pm.y - cy) < range + pm.radius) {
-      send({ type: 'minionHit', id: pm.id, damage: dmg });
+      send({ type: 'minionHit', id: pm.id, damage: dmg, ...(cc ? {cc} : {}) });
     }
   }
 }
@@ -2763,16 +2861,19 @@ let _poisonTimer = null;
 function applyPoison(baseDmg) {
   const cnt = getAugCount('poison');
   if (cnt <= 0) return;
-  // 기존 독 타이머 취소 후 재적용 (중첩 시 피해량만 누적)
   if (_poisonTimer) { _poisonTimer.forEach(t => clearTimeout(t)); }
   _poisonTimer = [];
-  L._poisonExpiry = performance.now() + 2000; // 독 표시용 만료 시각
-  send({type:'poisoned', dur: 2000}); // 피해자에게 독 상태 통보
-  const tickDmg = Math.ceil(baseDmg * 0.05 * cnt); // 중첩당 +5%씩 가산
+  L._poisonExpiry = performance.now() + 2000;
+  send({type:'poisoned', dur: 2000});
+  // 소환수에 독 CC + 피해 틱 동시 적용
+  for (const pm of peerMinions) send({type:'minionHit', id:pm.id, damage:0, cc:{poisonDur:2000}});
+  const tickDmg = Math.ceil(baseDmg * 0.05 * cnt);
   for (let i = 1; i <= 2; i++) {
     _poisonTimer.push(setTimeout(() => {
       if (!gameOn) return;
-      hitRemoteRaw(tickDmg); // 재귀 방지: raw 함수 사용
+      hitRemoteRaw(tickDmg);
+      // 소환수 피해 틱도 적용
+      for (const pm of peerMinions) send({type:'minionHit', id:pm.id, damage:tickDmg});
       addFx({type:'reikaBurnTick', x:R.x, y:R.y, r:0, maxR:20, dur:8, maxDur:8});
       send({type:'fx', fx:{type:'reikaBurnTick', x:R.x, y:R.y, r:0, maxR:20, dur:8, maxDur:8}});
     }, i * 1000));
@@ -2823,9 +2924,10 @@ function reikaApplyBurn(dur) {
   L._reikaRBurning.expiry = Math.max(L._reikaRBurning.expiry, performance.now() + dur);
   if (!L._reikaRBurning.active) L._reikaRBurning.lastTick = performance.now();
   L._reikaRBurning.active = true;
-  send({type:'burning', dur}); // R에게 화염 상태 통보
+  send({type:'burning', dur});
   addFx({type:'reikaBurnStart', x:R.x, y:R.y, r:0, maxR:42, dur:14, maxDur:14});
   send({type:'fx', fx:{type:'reikaBurnStart', x:R.x, y:R.y, r:0, maxR:42, dur:14, maxDur:14}});
+  for (const pm of peerMinions) send({type:'minionHit', id:pm.id, damage:0, cc:{burnDur:dur}});
 }
 
 function receiveKnockback(vx, vy) {
@@ -2849,6 +2951,7 @@ function receiveKnockback(vx, vy) {
 function stunRemote(dur) {
   if (R.burrowing) return;
   send({type:'stunned', dur});
+  for (const pm of peerMinions) send({type:'minionHit', id:pm.id, damage:0, cc:{stunDur:dur}});
 }
 function receiveStun(dur) {
   if (!gameOn || L.burrowing) return;
@@ -2856,8 +2959,8 @@ function receiveStun(dur) {
   L.stunEnd = performance.now() + dur;
 }
 function bindRemote(dur) {
-  // 속박: 이동·회피 불가, 공격은 가능
   send({type:'bound', dur});
+  for (const pm of peerMinions) send({type:'minionHit', id:pm.id, damage:0, cc:{bindDur:dur}});
 }
 function receiveBind(dur) {
   if (!gameOn) return;
@@ -3351,7 +3454,6 @@ const SKILLS = {
       if (!gameOn || L.rmbCooldown > 0) return;
       const B = BALANCE.veleu.rmb;
       if (!useStam(200)) return;
-      // 로켓 발사 (슬로우존 정보를 로켓에 실어 폭발 시 생성)
       const rocket = {id:uid(), x:L.x, y:L.y, radius:augBulletRadius(B.radius), speed:augBulletSpeed(B.speed),
                       dx:Math.cos(angle), dy:Math.sin(angle),
                       maxRange:B.range, traveled:0,
@@ -3653,9 +3755,10 @@ const SKILLS = {
       const spirit = localMinions.find(m => m.type === 'elin_spirit');
 
       if (spirit) {
-        // 돌진 명령 — A* 경로 방향으로 짧게 돌진 (적 위치가 아님)
+        // 돌진 명령 — 스테미나 20 소모
         if (spirit._dashing) return;
         if (!_enemyTargets.length) return;
+        if (!useStam(20)) return;
 
         // 현재 A* 경로에서 방향 결정
         const sd = spirit._stateData;
@@ -4905,11 +5008,12 @@ function moveBullets(dt=1) {
         }
         // 폭발 범위 내 소환수 피해
         hitPeerMinionsInRange(b.x, b.y, b.explosionRange, b.explosionDamage);
-        // 근접 기절
+        // 근접 기절 (플레이어 + 소환수)
         if (Math.hypot(b.x-R.x, b.y-R.y) < b.stunRange + R.radius) {
           stunRemote(b.stunDur);
         }
-        // 폭발 위치 슬로우 지대
+        hitPeerMinionsInRange(b.x, b.y, b.stunRange, 0, {stunDur: b.stunDur});
+        // 슬로우존 (소환수는 zone 안에 있으면 loop에서 자동 감속)
         if (b.slowRange && b.slowDur) {
           localSlowZones.push({x:b.x, y:b.y, r:b.slowRange, expiry:performance.now()+b.slowDur});
           send({type:'slowZone', x:b.x, y:b.y, r:b.slowRange, dur:b.slowDur});
@@ -7110,6 +7214,11 @@ function startGame() {
             id: m.id, type: m.type, charId: m.charId,
             x: m.x, y: m.y, hp: m.hp, maxHp: m.maxHp,
             radius: m.radius, color: m.color,
+            stunRemaining:  (m._stunEnd  && m._stunEnd  > performance.now()) ? m._stunEnd  - performance.now() : 0,
+            bindRemaining:  (m._bindEnd  && m._bindEnd  > performance.now()) ? m._bindEnd  - performance.now() : 0,
+            burnRemaining:  (m._burnEnd  && m._burnEnd  > performance.now()) ? m._burnEnd  - performance.now() : 0,
+            poisonRemaining:(m._poisonEnd&& m._poisonEnd> performance.now()) ? m._poisonEnd- performance.now() : 0,
+            slowRemaining:  (m._slowEnd  && m._slowEnd  > performance.now()) ? m._slowEnd  - performance.now() : 0,
           }))});
   }, 50);
 
@@ -7484,14 +7593,25 @@ function loop() {
     const len=Math.hypot(lx,ly);
     if (len>0) {
       const ux=lx/len, uy=ly/len;
+      // R 선분 충돌
       const ex=R.x-L.x, ey=R.y-L.y;
       const proj=ex*ux+ey*uy;
       const perp=Math.abs(ex*(-uy)+ey*ux);
-      if (proj>=-R.radius && proj<=len+R.radius && perp<28+R.radius) {
+      // 소환수 선분 충돌
+      let spiritInRope = false;
+      for (const pm of peerMinions) {
+        const sex=pm.x-L.x, sey=pm.y-L.y;
+        const sproj=sex*ux+sey*uy;
+        const sperp=Math.abs(sex*(-uy)+sey*ux);
+        if (sproj>=-pm.radius && sproj<=len+pm.radius && sperp<28+pm.radius) {
+          spiritInRope = true; break;
+        }
+      }
+      if ((proj>=-R.radius && proj<=len+R.radius && perp<28+R.radius) || spiritInRope) {
         L._mhOrb.hit=true;
         clearTimeout(L._mhOrbTimer); L._mhOrbTimer=null;
         const _ox=L._mhOrb?.x??ox, _oy=L._mhOrb?.y??oy; L._mhOrb=null;
-        hitCtxAll({x:L.x+(ux*len*0.5), y:L.y+(uy*len*0.5), range:len*0.5+28}, BALANCE.mehugu.rmb.damage);
+        hitCtxAll({x:L.x+(ux*len*0.5), y:L.y+(uy*len*0.5), range:len*0.5+28}, BALANCE.mehugu.rmb.damage, {bindDur: BALANCE.mehugu.rmb.bindDur});
         bindRemote(BALANCE.mehugu.rmb.bindDur);
         addFx({type:'mhRopeLine', x:L.x, y:L.y, tx:ox, ty:oy, dur:14, maxDur:14});
         send({type:'fx', fx:{type:'mhRopeLine', x:L.x, y:L.y, tx:ox, ty:oy, dur:14, maxDur:14}});
@@ -7506,9 +7626,12 @@ function loop() {
     const nowT = performance.now();
     for (let i = L._shairazTraps.length - 1; i >= 0; i--) {
       const trap = L._shairazTraps[i];
-      if (nowT - trap.placedAt < 500) continue; // 0.5초 준비 시간
-      if (Math.hypot(R.x - trap.x, R.y - trap.y) < BT.trapRadius + R.radius) {
-        hitCtxAll({x:trap.x, y:trap.y, range:BT.trapRadius}, BT.damage);
+      if (nowT - trap.placedAt < 500) continue;
+      // 플레이어 또는 소환수가 밟으면 발동
+      const playerTriggered = Math.hypot(R.x - trap.x, R.y - trap.y) < BT.trapRadius + R.radius;
+      const spiritTriggered = peerMinions.some(pm => Math.hypot(pm.x - trap.x, pm.y - trap.y) < BT.trapRadius + pm.radius);
+      if (playerTriggered || spiritTriggered) {
+        hitCtxAll({x:trap.x, y:trap.y, range:BT.trapRadius}, BT.damage, {stunDur: BT.stunDur});
         stunRemote(BT.stunDur);
         addFx({type:'shairazTrapTrigger', x:trap.x, y:trap.y, r:0, maxR:55, dur:20, maxDur:20});
         send({type:'fx', fx:{type:'shairazTrapTrigger', x:trap.x, y:trap.y, r:0, maxR:55, dur:20, maxDur:20}});
@@ -7542,13 +7665,14 @@ function loop() {
       const _rate = BR.energyMax / (BR.energyChargeTime / 1000);
       L._reikaEnergy = Math.min(BR.energyMax, (L._reikaEnergy||0) + _rate * (physDt/1000));
     }
-    // 연소 틱 (R에게)
+    // 연소 틱 (R + 소환수에게)
     if (L._reikaRBurning?.active) {
       if (now > L._reikaRBurning.expiry) {
         L._reikaRBurning.active = false;
       } else if (now - L._reikaRBurning.lastTick >= BR.burn.tickMs) {
         L._reikaRBurning.lastTick = now;
         hitRemote(BR.burn.damage);
+        for (const pm of peerMinions) send({type:'minionHit', id:pm.id, damage:BR.burn.damage});
         addFx({type:'reikaBurnTick', x:R.x, y:R.y, r:0, maxR:22, dur:8, maxDur:8});
         send({type:'fx', fx:{type:'reikaBurnTick', x:R.x, y:R.y, r:0, maxR:22, dur:8, maxDur:8}});
       }
@@ -7564,14 +7688,14 @@ function loop() {
         send({type:'fx', fx:{type:'reikaFireTrailGround', x:L.x, y:L.y, dur:BALANCE.reika.fireTrail.dur/FRAME_MS, maxDur:BALANCE.reika.fireTrail.dur/FRAME_MS}});
       }
     }
-    // 화염자국 만료 + 충돌
+    // 화염자국 만료 + 충돌 (R + 소환수)
     if (L._reikaFireTrails?.length > 0) {
       const FT = BR.fireTrail;
       L._reikaFireTrails = L._reikaFireTrails.filter(t => now - t.placedAt < FT.dur);
       for (const trail of L._reikaFireTrails) {
         const inRange = Math.hypot(R.x-trail.x, R.y-trail.y) < FT.radius + R.radius;
-        // lastBurn 방식: 같은 자국이라도 burnDur 이후엔 재발동 가능
-        if (inRange && (!trail.lastBurn || now - trail.lastBurn >= FT.burnDur)) {
+        const spiritInRange = peerMinions.some(pm => Math.hypot(pm.x-trail.x, pm.y-trail.y) < FT.radius + pm.radius);
+        if ((inRange || spiritInRange) && (!trail.lastBurn || now - trail.lastBurn >= FT.burnDur)) {
           trail.lastBurn = now;
           reikaApplyBurn(FT.burnDur);
         }
