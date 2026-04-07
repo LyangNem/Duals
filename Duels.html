@@ -1820,14 +1820,27 @@ let uidN = 0;
 const uid  = () => `${Date.now()}_${uidN++}`;
 const send = d => { try { if (conn?.open) conn.send(d); } catch(e){} };
 
+// PeerJS 공통 ICE 설정 (STUN 서버 다중화로 모바일 NAT 통과율 향상)
+const PEER_CONFIG = {
+  debug: 0,
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+    ]
+  }
+};
+
 function hostGame() {
   const code = String(Math.floor(100000 + Math.random() * 900000));
   showScr('scr-host');
   document.getElementById('code-display').textContent = code;
-  peer = new Peer(code, { debug:0 });
+  peer = new Peer(code, PEER_CONFIG);
   peer.on('connection', c => {
     conn=c; isHost=true;
-    // 포맷 읽기 (선승은 총판수에서 자동 계산)
     const tot  = parseInt(document.getElementById('fmt-total').value) || 5;
     const wins = Math.ceil(tot / 2);
     matchState.format = { total: tot, winsNeeded: wins };
@@ -1843,17 +1856,39 @@ function joinGame() {
   const code = document.getElementById('code-input').value.trim();
   if (!code) return;
   setStatus('join-status','연결 중...','');
-  peer = new Peer(undefined, { debug:0 });
-  peer.on('open', () => { conn = peer.connect(code); isHost = false; setupConn(); });
-  peer.on('error', e => setStatus('join-status','오류: '+e.type,'err'));
+  if (peer) { peer.destroy(); peer = null; }
+  peer = new Peer(undefined, PEER_CONFIG);
+
+  // 타임아웃: 15초 내 연결 안 되면 안내
+  const joinTimeout = setTimeout(() => {
+    if (!conn?.open) {
+      setStatus('join-status','연결 시간 초과. 방 코드를 확인하거나 다시 시도해주세요.','err');
+    }
+  }, 15000);
+
+  peer.on('open', () => {
+    setStatus('join-status','서버 접속 완료, 방 연결 중...','');
+    conn = peer.connect(code, { reliable: true });
+    isHost = false;
+    setupConn(joinTimeout);
+  });
+  peer.on('error', e => {
+    clearTimeout(joinTimeout);
+    setStatus('join-status','오류: '+e.type,'err');
+  });
 }
-function setupConn() {
+function setupConn(joinTimeout) {
   conn.on('open', () => {
+    if (joinTimeout) clearTimeout(joinTimeout);
     if (isHost) send({type:'matchFormat', format: matchState.format});
     showScr('scr-select');
   });
   conn.on('data',  onData);
   conn.on('close', () => { alert('상대방 연결 끊김'); });
+  conn.on('error', e => {
+    if (joinTimeout) clearTimeout(joinTimeout);
+    setStatus('join-status','연결 오류: '+e.type,'err');
+  });
 }
 function copyCode() {
   const code = document.getElementById('code-display').textContent;
@@ -6703,6 +6738,7 @@ function showRoundResult(won, callback) {
 
 
 function showMatchOver(won) {
+  matchState._matchOver = true; // 매치 완전 종료 플래그
   const ov=document.getElementById('result-oveleulay');
   const tx=document.getElementById('result-text');
   tx.textContent = won ? '매치 승리!' : '매치 패배...';
@@ -7047,9 +7083,8 @@ function acceptRematch() {
   doRematch();
 }
 function doRematch() {
-  // 매치가 완전히 끝난 경우(승패 결정)엔 캐릭터 선택으로 → keepChars=false
-  const isMatchOver = matchState.localWins >= matchState.format.winsNeeded
-                   || matchState.peerWins  >= matchState.format.winsNeeded;
+  // _matchOver 플래그로 매치 완전 종료 여부 판단 (format 변경 전 기록됨)
+  const isMatchOver = matchState._matchOver || (matchState.localWins === 0 && matchState.peerWins === 0);
   const keepChars = !isMatchOver && (matchState.localWins > 0 || matchState.peerWins > 0);
   localReady=false; peerReady=false; lastLoopTime=0;
   if (!keepChars) { selCharId=null; peerCharId=null; }
@@ -7081,6 +7116,7 @@ function doRematch() {
     // 완전 리매치: 캐릭터 선택 화면으로
     matchState.localWins=0; matchState.peerWins=0; matchState.round=1;
     matchState.localAugments=[]; matchState.peerAugments=[];
+    matchState._matchOver = false; // 플래그 초기화
     document.querySelectorAll('.char-card').forEach(c => { c.classList.remove('sel'); c.style.pointerEvents=''; });
     document.getElementById('confirm-btn').disabled=false;
     setStatus('sel-status','','');
