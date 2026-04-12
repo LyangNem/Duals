@@ -206,7 +206,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.1.4</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.2.1</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -319,7 +319,7 @@ input[type=text]:focus{border-color:#4af;}
   <div class="between-cols">
     <!-- 캐릭터 변경 패널 -->
     <div class="between-panel">
-      <div class="between-title">캐릭터 변경 <span style="color:#556;font-size:10px;">(선택 안 하면 유지)</span></div>
+      <div class="between-title">캐릭터 변경 <span style="color:#556;font-size:10px;"></span></div>
       <div class="char-mini-grid" id="between-char-grid"></div>
       <p class="status" id="between-char-status" style="margin-top:10px;font-size:11px;"></p>
     </div>
@@ -555,7 +555,7 @@ const BALANCE = {
 
   // ── 타우 ───────────────────────────────────────────────────
   tau: {
-    hp:     70,
+    hp:     100,
     speed:  4.5,
     radius: 20,
 
@@ -1073,7 +1073,7 @@ const BALANCE = {
     radius: 20,
 
     lmb: {
-      chargeTime:      2500,   // 최대 차징 시간 (ms)
+      chargeTime:      1500,   // 최대 차징 시간 (ms)
       chargeDrainRate:   48,   // 차징 중 스테미나 소모/초
       minDamage:  10,
       maxDamage:  90,
@@ -1105,6 +1105,42 @@ const BALANCE = {
       cd:             300,
       damage:         15,
       knockbackPower: 420,
+    },
+  },
+
+  // ── 코녕 ──────────────────────────────────────────────────
+  konyeong: {
+    hp:     110,
+    speed:  4.25,
+    radius: 20,
+
+    lmb: {
+      cost:        25,
+      length:      220,
+      width:       56,
+      damage:      18,
+      tipDamage:   36,
+      tipRatio:    0.70,
+      cd:          380,
+    },
+    rmb: {
+      cost:        60,
+      length:      180,
+      width:       60,
+      damage:      20,
+      knockbackPower: 420,
+      slowRadius:  120,
+      slowDur:     3000,
+      cd:          900,
+    },
+    counter: {
+      aoeRange:       200,
+      damage:         20,
+      tipDamage:      40,
+      tipRatio:       0.65,
+      knockbackPower: 480,
+      slowDur:        2000,
+      cd:             300,
     },
   },
 };
@@ -1412,6 +1448,25 @@ const CHARACTERS = {
         desc:`후방으로 슬라이딩 후 근거리 대응 산탄 발사. 적중 시 강한 넉백 (탄당 ${BALANCE.cherity.rmb.damage})` },
       { key:'L-Shift', name:'연막탄',  cost:0,
         desc:`연막탄 투척. 착탄 시 범위 내 피해 및 넉백. 연막 내 플레이어는 은신. 가까운 적은 확인 가능 (${BALANCE.cherity.counter.damage})` },
+    ],
+  },
+
+  konyeong: {
+    id:        'konyeong',
+    name:      '코녕',
+    color:     '#f5e6c8',
+    maxHealth: BALANCE.konyeong.hp,
+    speed:     BALANCE.konyeong.speed,
+    radius:    BALANCE.konyeong.radius,
+    statsText: [['체력','110'],['이동속도','빠름'],['스타일','범위형 근거리 딜러']],
+    desc:      '마시멜로 창으로 사거리 끝의 적에게 강한 피해를 주는 캐릭터',
+    skills: [
+      { key:'LMB',     name:'마시멜로 창',      cost:BALANCE.konyeong.lmb.cost,
+        desc:`창을 찌릅니다. 사거리 끝 적중 시 피해량 2배 (${BALANCE.konyeong.lmb.damage}/${BALANCE.konyeong.lmb.tipDamage})` },
+      { key:'RMB',     name:'뜨거운 마시멜로',  cost:BALANCE.konyeong.rmb.cost,
+        desc:`전방을 내리쳐 피해와 넉백. 착탄 위치에 감속 지대 형성 (${BALANCE.konyeong.rmb.damage})` },
+      { key:'L-Shift', name:'저리가!',           cost:0,
+        desc:`마시멜로 창을 크게 휘둘러 원형 피해. 끝부분 적중 시 피해 2배, 넉백 및 감속 (${BALANCE.konyeong.counter.damage}/${BALANCE.konyeong.counter.tipDamage})` },
     ],
   },
 };
@@ -1920,6 +1975,9 @@ function onData(d) {
       R.nsonyaStacks=d.nsonyaStacks??0;
       R.reikaBlessed=d.reikaBlessed??false;
       R.fortressActive=d.fortressActive??false;
+      R._slowEnd = d.slowRemaining > 0
+        ? Math.max(R._slowEnd||0, performance.now() + d.slowRemaining)
+        : (R._slowEnd||0); // slowRemaining=0이어도 기존값 유지
       // 상대 소환수 동기화
       if (d.minions) {
         // 기존 peerMinion에서 없어진 것 필터 + 새로 추가
@@ -2035,6 +2093,9 @@ function onData(d) {
     }
     case 'slowZone':
       peerSlowZones.push({x:d.x, y:d.y, r:d.r, expiry:performance.now()+d.dur}); break;
+    case 'slowPlayer':
+      // 직접 슬로우: L이 직접 감속됨
+      L._slowEnd = Math.max(L._slowEnd||0, performance.now() + d.dur); break;
     case 'smokeZone':
       globalSmokeZones.push({x:d.x, y:d.y, r:d.r, expiry:performance.now()+d.dur, visionRange:d.visionRange}); break;
     case 'smokeReveal':
@@ -4646,9 +4707,11 @@ const SKILLS = {
     lmbStart() {
       if (!gameOn || L.lmbCooldown > 0 || L._cherityCharging) return;
       if (L.stunEnd && performance.now() < L.stunEnd) return;
-      if (L.stamina <= 0) return; // 스테미나 없으면 시작 불가
+      if (L.stamina <= 0) return;
       L._cherityCharging = true;
       L._cherityChargeStart = performance.now();
+      L._cherityDrained = 0;
+      L._cherityFrozenT = null;
     },
 
     lmbRelease() {
@@ -4658,7 +4721,7 @@ const SKILLS = {
       const frozenT     = L._cherityFrozenT;
       L._cherityDrained = 0;
       L._cherityFrozenT = null;
-      if (!gameOn || L.lmbCooldown > 0) return;
+      if (!gameOn) return;
       const B   = BALANCE.cherity.lmb;
       const now = performance.now();
       const held = Math.min(now - L._cherityChargeStart, B.chargeTime);
@@ -4671,7 +4734,7 @@ const SKILLS = {
       }
       const damage      = Math.round(B.minDamage + (B.maxDamage - B.minDamage) * t);
       const speed       = B.minSpeed + (B.maxSpeed - B.minSpeed) * t;
-      const pierceWalls = t >= 1.0;
+      const pierceWalls = t >= 0.7;
       const angle       = getAngle();
       const b = {
         id: uid(), x: L.x, y: L.y,
@@ -4771,10 +4834,97 @@ const SKILLS = {
       }, BALANCE.counter.delay);
     },
   },
-};
 
-// ============================================================
-// ⑫ 스킬 유틸 함수
+  // ── 코녕 ──────────────────────────────────────────────────
+  konyeong: {
+    // LMB: 마시멜로 창 — 직사각형 찌르기, 끝부분(tipRatio 이상) 2배 피해
+    lmb(angle) {
+      const B = BALANCE.konyeong.lmb;
+      if (L.lmbCooldown > 0) return;
+      if (!useStam(B.cost)) return;
+
+      const cos = Math.cos(angle), sin = Math.sin(angle);
+      const dx = R.x - L.x, dy = R.y - L.y;
+      const fwd  =  dx * cos + dy * sin;
+      const perp = Math.abs(-dx * sin + dy * cos);
+      const inRect = fwd >= 0 && fwd <= augMeleeRange(B.length) + R.radius
+                  && perp <= B.width / 2 + R.radius;
+      if (inRect) {
+        const tipThresh = augMeleeRange(B.length) * B.tipRatio;
+        const dmg = fwd >= tipThresh ? B.tipDamage : B.damage;
+        hitCtx({x:L.x, y:L.y, angle, range:augMeleeRange(B.length), halfAngle:Math.PI/2}, dmg);
+      }
+      hitCtxSpirit({x:L.x, y:L.y, angle, range:augMeleeRange(B.length), halfAngle:Math.PI/2}, B.damage);
+      addFx({type:'konyeongStab', x:L.x, y:L.y, angle, len:augMeleeRange(B.length), width:B.width, dur:9, maxDur:9});
+      send({type:'fx', fx:{type:'konyeongStab', x:L.x, y:L.y, angle, len:augMeleeRange(B.length), width:B.width, dur:9, maxDur:9}});
+      L.lmbCooldown = B.cd; L.lastAttackTime = performance.now();
+    },
+
+    // RMB: 뜨거운 마시멜로 — 0.3초 선딜레이 후 내리치기 + 직접 슬로우 CC + 넉백
+    rmb(angle) {
+      const B = BALANCE.konyeong.rmb;
+      if (L.rmbCooldown > 0) return;
+      if (!useStam(B.cost)) return;
+      L.rmbCooldown = B.cd; L.lastAttackTime = performance.now();
+
+      L.color = '#f5e6c8'; send({type:'colorChange', color:'#f5e6c8'});
+      const tok = ++L._counterToken;
+      setTimeout(() => {
+        if (!gameOn || L._counterToken !== tok) return;
+        L.color = L.defaultColor; L._preFlashColor = null; send({type:'colorChange', color:L.defaultColor});
+        const fireAngle = getAngle();
+        const cos = Math.cos(fireAngle), sin = Math.sin(fireAngle);
+        const hit = hitCtxAll({x:L.x, y:L.y, cos, sin, len:augMeleeRange(B.length), width:B.width}, B.damage);
+        if (hit) {
+          knockbackRemote(B.knockbackPower);
+        }
+        hitCtxSpirit({x:L.x, y:L.y, angle:fireAngle, range:augMeleeRange(B.length), halfAngle:Math.PI/2}, B.damage);
+        // 착탄 지점에 슬로우 장판 생성
+        const ex = L.x + Math.cos(fireAngle) * augMeleeRange(B.length);
+        const ey = L.y + Math.sin(fireAngle) * augMeleeRange(B.length);
+        localSlowZones.push({x:ex, y:ey, r:B.slowRadius, expiry:performance.now()+B.slowDur});
+        send({type:'slowZone', x:ex, y:ey, r:B.slowRadius, dur:B.slowDur});
+        addFx({type:'slowZoneAppear', x:ex, y:ey, r:B.slowRadius, dur:B.slowDur/FRAME_MS, maxDur:B.slowDur/FRAME_MS});
+        send({type:'fx', fx:{type:'slowZoneAppear', x:ex, y:ey, r:B.slowRadius, dur:B.slowDur/FRAME_MS, maxDur:B.slowDur/FRAME_MS}});
+        addFx({type:'konyeongSmash', x:L.x, y:L.y, angle:fireAngle, len:augMeleeRange(B.length), width:B.width, dur:12, maxDur:12});
+        send({type:'fx', fx:{type:'konyeongSmash', x:L.x, y:L.y, angle:fireAngle, len:augMeleeRange(B.length), width:B.width, dur:12, maxDur:12}});
+        L.lastAttackTime = performance.now();
+      }, 300);
+    },
+
+    // Counter: 저리가! — 원형 AOE, 끝부분 2배 피해 + 넉백 + 슬로우
+    counter(angle) {
+      const B = BALANCE.konyeong.counter;
+      if (!L.counterReady) return;
+      if (L.lmbCooldown > 0 || L.rmbCooldown > 0) return;
+      L.counterReady = false; L.lmbCooldown = B.cd; L.rmbCooldown = B.cd;
+      L.color = '#ffd700'; send({type:'colorChange', color:'#ffd700'});
+      addFx({type:'counterCharge', x:L.x, y:L.y, r:30, maxR:30, dur:18, maxDur:18});
+      const tok = ++L._counterToken;
+      L._attackPreview = { shapes: [{ type: 'circle', r: B.aoeRange }] };
+      setTimeout(() => {
+        L._attackPreview = null;
+        if (!gameOn || L._counterToken !== tok) return;
+        L.color = L.defaultColor; L._preFlashColor = null; send({type:'colorChange', color:L.defaultColor});
+        const dist = Math.hypot(R.x - L.x, R.y - L.y);
+        if (dist < B.aoeRange + R.radius) {
+          const tipThresh = B.aoeRange * B.tipRatio;
+          const dmg = dist >= tipThresh ? B.tipDamage : B.damage;
+          hitCtx({x:L.x, y:L.y, angle, range:B.aoeRange, halfAngle:Math.PI}, dmg);
+          knockbackRemote(B.knockbackPower);
+          // 직접 슬로우 2초
+          R._slowEnd = Math.max(R._slowEnd||0, performance.now() + B.slowDur);
+          send({type:'slowPlayer', dur: B.slowDur});
+        }
+        hitCtxSpirit({x:L.x, y:L.y, angle, range:B.aoeRange, halfAngle:Math.PI}, B.damage);
+        hitPeerMinionsInRange(L.x, L.y, B.aoeRange, B.damage);
+        addFx({type:'konyeongSwing', x:L.x, y:L.y, r:0, maxR:B.aoeRange, dur:18, maxDur:18});
+        send({type:'fx', fx:{type:'konyeongSwing', x:L.x, y:L.y, r:0, maxR:B.aoeRange, dur:18, maxDur:18}});
+        L.lastAttackTime = performance.now();
+      }, BALANCE.counter.delay);
+    },
+  },
+};
 // ============================================================
 
 function fireShotgun(angle, {pellets, spread, speed, radius, damage, maxRange, knockbackPower}) {
@@ -4866,6 +5016,7 @@ CANVAS.addEventListener('mouseup', e => {
   }
 });
 CANVAS.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('keydown', e => {
   _sfxCtx.state === 'suspended' && _sfxCtx.resume();
   keys[e.key.toLowerCase()]=true;
@@ -5838,6 +5989,46 @@ function draw() {
       ctx.strokeStyle=`rgba(220,220,220,${a*0.85})`; ctx.lineWidth=3; ctx.stroke();
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1,rs2*0.5), 0, Math.PI*2);
       ctx.strokeStyle=`rgba(240,240,240,${a*0.5})`; ctx.lineWidth=1.5; ctx.stroke();
+
+    } else if (f.type==='konyeongStab') {
+      // 마시멜로 창 찌르기 — 직사각형 (바닐라색)
+      ctx.save();
+      ctx.translate(f.x, f.y); ctx.rotate(f.angle);
+      const stabT = 1 - f.dur/f.maxDur;
+      const curLen = f.len * Math.min(1, stabT * 2.2);
+      ctx.fillStyle = `rgba(245,230,200,${a*0.35})`;
+      ctx.fillRect(0, -f.width/2, curLen, f.width);
+      ctx.strokeStyle = `rgba(245,220,180,${a*0.9})`;
+      ctx.lineWidth = 2.5; ctx.strokeRect(0, -f.width/2, curLen, f.width);
+      // 끝부분 강조
+      ctx.fillStyle = `rgba(255,200,100,${a*0.6})`;
+      ctx.fillRect(curLen * 0.7, -f.width/2, curLen * 0.3, f.width);
+      ctx.restore();
+
+    } else if (f.type==='konyeongSmash') {
+      // 뜨거운 마시멜로 내리치기 — 두꺼운 직사각형
+      ctx.save();
+      ctx.translate(f.x, f.y); ctx.rotate(f.angle);
+      const smashT = 1 - f.dur/f.maxDur;
+      ctx.fillStyle = `rgba(255,180,60,${a*0.45})`;
+      ctx.fillRect(0, -f.width/2, f.len, f.width);
+      ctx.strokeStyle = `rgba(255,140,30,${a*0.9})`;
+      ctx.lineWidth = 3; ctx.strokeRect(0, -f.width/2, f.len, f.width);
+      // 충격파 원
+      const sr = (f.width * 0.8) * smashT;
+      ctx.beginPath(); ctx.arc(f.len, 0, Math.max(1, sr), 0, Math.PI*2);
+      ctx.strokeStyle=`rgba(255,200,80,${a*0.7})`; ctx.lineWidth=2; ctx.stroke();
+      ctx.restore();
+
+    } else if (f.type==='konyeongSwing') {
+      // 저리가! 원형 휘두르기 — 팽창 원
+      const rSwing = f.maxR * (1 - f.dur/f.maxDur);
+      ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1, rSwing), 0, Math.PI*2);
+      ctx.fillStyle=`rgba(245,220,160,${a*0.18})`; ctx.fill();
+      ctx.strokeStyle=`rgba(255,210,120,${a*0.9})`; ctx.lineWidth=3.5; ctx.stroke();
+      // 안쪽 링
+      ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1, rSwing*0.55), 0, Math.PI*2);
+      ctx.strokeStyle=`rgba(255,180,60,${a*0.5})`; ctx.lineWidth=1.5; ctx.stroke();
     } else if (f.type==='elinSpiritAtk') {
       // 유령 근접 공격 — 부채꼴 휘두르기
       if (f.halfAngle !== undefined) {
@@ -6184,8 +6375,8 @@ function draw() {
     ctx.beginPath(); ctx.arc(L.x, L.y, L.radius + 9, -Math.PI / 2, -Math.PI / 2 + sweepAngle);
     ctx.strokeStyle = tc >= 1 ? 'rgba(175,20,48,1)' : `rgba(145,8,35,${0.75 + 0.25 * tc})`;
     ctx.lineWidth = 3.5; ctx.stroke();
-    // ❹ 최대 차징 시 벽관통 강조
-    if (tc >= 1) {
+    // ❹ 70% 이상 차징 시 벽관통 강조
+    if (tc >= 0.7) {
       const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.025);
       ctx.beginPath(); ctx.arc(L.x, L.y, L.radius + 16, 0, Math.PI * 2);
       ctx.strokeStyle = `rgba(155,12,38,${pulse * 0.85})`; ctx.lineWidth = 2;
@@ -6334,6 +6525,18 @@ function drawPlayer(p, label) {
     ctx.setLineDash([5,3]); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle='rgba(255,165,0,0.95)'; ctx.font='bold 13px Courier New'; ctx.textAlign='center';
     ctx.fillText('BURN', p.x, p.y-p.radius-16);
+  }
+
+  // 슬로우 표시
+  const isSlowedP = (p===L && L._slowEnd && performance.now() < (L._slowEnd||0))
+                 || (p===R && R._slowEnd && performance.now() < (R._slowEnd||0));
+  if (isSlowedP) {
+    const pulseS=0.5+0.5*Math.sin(performance.now()*0.008);
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.radius+10,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(130,180,255,${0.7+0.3*pulseS})`; ctx.lineWidth=3;
+    ctx.setLineDash([5,3]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='rgba(130,200,255,0.95)'; ctx.font='bold 13px Courier New'; ctx.textAlign='center';
+    ctx.fillText('SLOW', p.x, p.y-p.radius-30);
   }
 
   if (p.dodging) {
@@ -6602,6 +6805,7 @@ function drawPlayer(p, label) {
     ctx.strokeStyle=`rgba(255,240,100,${0.4+0.2*pulse2})`; ctx.lineWidth=1.5;
     ctx.setLineDash([3,5]); ctx.stroke(); ctx.setLineDash([]);
   }
+
 }
 
 function drawToolbox(ox, oy) {
@@ -7240,6 +7444,7 @@ function startGame() {
                    ? {x:L._elinSpirit.x, y:L._elinSpirit.y, hp:L._elinSpirit.hp, maxHp:L._elinSpirit.maxHp} : null,
           stunRemaining: (L.stunEnd && L.stunEnd > performance.now()) ? L.stunEnd - performance.now() : 0,
           bindRemaining: (L.bindEnd && L.bindEnd > performance.now()) ? L.bindEnd - performance.now() : 0,
+          slowRemaining: (L._slowEnd && L._slowEnd > performance.now()) ? L._slowEnd - performance.now() : 0,
           burrowEntry: L.burrowEntry??null,
           erapabiFortify: L._erapabiFortify??false,
           nsonyaStacks: (L.charDef?.id==='nsonya') ? (L._nsonyaStacks||0) : 0,
@@ -7307,7 +7512,8 @@ function loop() {
   }
   const inPeerSlow  = peerSlowZones.some(z => Math.hypot(L.x-z.x, L.y-z.y) < z.r);
   const inLocalSlow = localSlowZones.some(z => Math.hypot(R.tx-z.x, R.ty-z.y) < z.r);
-  const slowMult = inPeerSlow ? BALANCE.veleu.rmb.slowFactor : 1;
+  const directSlowed = L._slowEnd && now < L._slowEnd;
+  const slowMult = (inPeerSlow || directSlowed) ? BALANCE.veleu.rmb.slowFactor : 1;
 
   // 엔소냐 버프 만료 체크
   if (L.charDef?.id === 'nsonya' && L._nsonyaExpiry) {
@@ -7402,6 +7608,10 @@ function loop() {
       L.staminaUseTime = now;
       // 스테미나 소진 → 현재 t에서 동결
       if (L.stamina <= 0) L._cherityFrozenT = liveT;
+    }
+    // 최대 차징 도달 → t=1로 고정 유지 (자동발사 없음, 직접 릴리즈해야 함)
+    if (!frozen && liveT >= 1) {
+      L._cherityFrozenT = 1;
     }
     // 차징 중(동결·풀차징 포함)엔 항상 staminaUseTime 갱신 → 자동회복 억제
     L.staminaUseTime = now;
