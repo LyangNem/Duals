@@ -206,7 +206,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.4.1</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.4.2</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -429,7 +429,7 @@ const BALANCE = {
       cd:      400,
     },
     rmb: {
-      cost:    80,
+      cost:    60,
       pellets: 6,
       spread:  0.28,
       speed:   22,
@@ -523,13 +523,13 @@ const BALANCE = {
   // ── 메인마드 ───────────────────────────────────────────────
   mainmad: {
     hp:     150,
-    speed:  4.25,
+    speed:  18.25,
     radius: 20,
 
     lmb: {
       costMin:    15,
       costMax:    40,
-      chargeTime: 1400,
+      chargeTime: 1000,
       drainRate:  30,
       minDamage:  20,
       maxDamage:  60,
@@ -555,7 +555,7 @@ const BALANCE = {
 
   // ── 타우 ───────────────────────────────────────────────────
   tau: {
-    hp:     100,
+    hp:     110,
     speed:  4.5,
     radius: 20,
 
@@ -564,7 +564,7 @@ const BALANCE = {
       meleeRange:      200,    // 160 → 200
       halfAngle:       1.2,
       damage:          20,
-      maxDamage:       40,     // 근접 시 최대 피해
+      maxDamage:       30,     // 근접 시 최대 피해
       minDamage:       10,     // 원거리 시 최소 피해
       stackCount:      3,      // n번 적중 시 오버차지 발동
       overchargeRatio: 0.15,   // 최대체력 비례 추가 피해
@@ -734,9 +734,9 @@ const BALANCE = {
     rmb: {
       cost:           30,
       predelay:       200,
-      dur1:           6000,
-      dur2:           6500,
-      dur3:           7000,
+      dur1:           7000,
+      dur2:           7500,
+      dur3:           8000,
       speedMult:      1.35,
       stamRegenMult:  2.0,
       dodgeSpeedMult: 1.6,
@@ -810,7 +810,7 @@ const BALANCE = {
       damage:         35,
       knockbackPower: 520,
       dur:            200,
-      window:         600,  // 회피 후 방패돌진 가능 시간 (ms)
+      window:         400,  // 회피 후 방패돌진 가능 시간 (ms)
       cd:             800,
     },
     rmb: {
@@ -1029,7 +1029,7 @@ const BALANCE = {
 
   // ── 칸 ─────────────────────────────────────────────────────
   kan: {
-    hp:     80,
+    hp:     100,
     speed:  4.5,
     radius: 20,
 
@@ -1073,7 +1073,7 @@ const BALANCE = {
     radius: 20,
 
     lmb: {
-      chargeTime:      1500,   // 최대 차징 시간 (ms)
+      chargeTime:      1000,   // 최대 차징 시간 (ms)
       chargeDrainRate:   48,   // 차징 중 스테미나 소모/초
       minDamage:  10,
       maxDamage:  90,
@@ -1082,7 +1082,7 @@ const BALANCE = {
       radius:     8,
       range:      1400,
       minCost:    15,
-      maxCost:    120,
+      maxCost:    80,
       cd:         600,
     },
     rmb: {
@@ -1099,7 +1099,7 @@ const BALANCE = {
       cd:             900,
     },
     counter: {
-      smokeRadius:    220,
+      smokeRadius:    143,
       smokeDur:       6000,
       visionRange:    110,
       cd:             300,
@@ -1118,14 +1118,14 @@ const BALANCE = {
       cost:        25,
       length:      220,
       width:       56,
-      damage:      18,
-      tipDamage:   36,
+      damage:      15,
+      tipDamage:   30,
       tipRatio:    0.70,
       cd:          380,
     },
     rmb: {
       cost:        60,
-      length:      180,
+      length:      220,
       width:       60,
       damage:      20,
       knockbackPower: 420,
@@ -1378,7 +1378,7 @@ const CHARACTERS = {
     desc:      '로켓포로 게임을 끝장내는 캐릭터',
     skills: [
       { key:'LMB',     name:'초콜릿 쌍권총',    cost:BALANCE.veleu.lmb.cost, desc:`쌍권총 3발 발사 (탄당 ${BALANCE.veleu.lmb.damage}).` },
-      { key:'RMB',     name:'초콜릿 로켓포',    cost:200, desc:`스테미나 200 소모. 강력한 초콜릿 로켓 발사. 폭발 범위 내 피해 및 발사 지점에 ${BALANCE.veleu.rmb.slowDur/1000}초 슬로우 지대, 근접 적중 시 기절 (${BALANCE.veleu.rmb.explosionDamage})` },
+      { key:'RMB',     name:'초콜릿 로켓포',    cost:200, desc:`스테미나 130 소모. 강력한 초콜릿 로켓 발사. 폭발 범위 내 피해 및 발사 지점에 ${BALANCE.veleu.rmb.slowDur/1000}초 슬로우 지대, 근접 적중 시 기절 (${BALANCE.veleu.rmb.explosionDamage})` },
       { key:'L-Shift', name:'초콜릿 폭탄 투척', cost:0, desc:`전방에 초콜릿 폭탄 ${BALANCE.veleu.counter.count}개를 일렬로 투척 (탄당 ${BALANCE.veleu.counter.damage})` },
     ],
   },
@@ -2817,7 +2817,7 @@ MINION_DEFS['elin_spirit'] = {
     // 이름
     ctx.fillStyle = isPeer ? 'rgba(200,216,240,0.55)' : 'rgba(200,216,240,0.9)';
     ctx.font = 'bold 10px Courier New'; ctx.textAlign = 'center';
-    ctx.fillText('SPIRIT', m.x, m.y - m.radius - 24);
+    ctx.fillText('유령', m.x, m.y - m.radius - 24);
 
     ctx.globalAlpha = 1;
 
@@ -3815,7 +3815,7 @@ const SKILLS = {
     rmb(angle) {
       if (!gameOn || L.rmbCooldown > 0) return;
       const B = BALANCE.veleu.rmb;
-      if (!useStam(200)) return;
+      if (!useStam(130)) return;
       const rocket = {id:uid(), x:L.x, y:L.y, radius:augBulletRadius(B.radius), speed:augBulletSpeed(B.speed),
                       dx:Math.cos(angle), dy:Math.sin(angle),
                       maxRange:B.range, traveled:0,
@@ -4142,7 +4142,7 @@ const SKILLS = {
           dashDY = (nearest.y - spirit.y) / nd;
         }
 
-        const dashDist = 160; // 짧은 돌진 거리
+        const dashDist = 208; // 짧은 돌진 거리
         spirit._dashing   = true;
         spirit._dashHit   = false;
         spirit._dashStart = performance.now();
