@@ -206,7 +206,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.5.1</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.5.2</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -1219,7 +1219,7 @@ const BALANCE = {
     },
 
     rmb: {
-      cost:            90,
+      cost:            110,
       predelay:        500,
       hitInterval:     500,
       hitCount:        7,
@@ -1626,15 +1626,15 @@ const CHARACTERS = {
     maxHealth: BALANCE.prill.hp,
     speed:     BALANCE.prill.speed,
     radius:    BALANCE.prill.radius,
-    statsText: [['체력', String(BALANCE.prill.hp)], ['이동속도', '보통'], ['스타일', '콤보형 근거리 서포터']],
-    desc:      '빗자루로 청소하며 전투하는 캐릭터',
+    statsText: [['체력', String(BALANCE.prill.hp)], ['이동속도', '보통'], ['스타일', '콤보형 근거리 구역 딜러']],
+    desc:      '빗자루로 청소구역을 지정해 전투를 지배하는 캐릭터',
     skills: [
       { key:'LMB', name:'빗자루질', cost:BALANCE.prill.lmb.cost,
-        desc:`좌스윙, 우스윙, 전방 밀쳐내기 3타 콤보. ${BALANCE.prill.lmb.comboWindow/1000}초 내 재공격 시 콤보 유지 (${BALANCE.prill.lmb.swingDamage}/${BALANCE.prill.lmb.thrustDamage})`},
-      { key:'RMB', name:'청소 구역', cost:BALANCE.prill.rmb.cost,
-        desc:`이동 제한 후 전방 구역 표시. ${BALANCE.prill.rmb.hitInterval/1000}초마다 구역청소 총 ${BALANCE.prill.rmb.hitCount}회. 재사용 시 취소 및 청소 구역 위에서 피해 증가 +${BALANCE.prill.rmb.zoneDamageBoost*100}% (${BALANCE.prill.rmb.damage})` },
+        desc:`좌스윙(${BALANCE.prill.lmb.swingDamage}) → 우스윙(${BALANCE.prill.lmb.swingDamage}) → 전방 밀쳐내기(${BALANCE.prill.lmb.thrustDamage}) 3타 콤보. ${BALANCE.prill.lmb.comboWindow/1000}초 내 재공격 시 콤보 유지` },
+      { key:'RMB', name:'청소구역', cost:BALANCE.prill.rmb.cost,
+        desc:`이동 제한 후 전방 구역 표시. ${BALANCE.prill.rmb.hitInterval/1000}초마다 벽 관통 일자공격 총 ${BALANCE.prill.rmb.hitCount}회(${BALANCE.prill.rmb.damage}). 재사용 시 취소 → 구역 내 공격 피해 +${BALANCE.prill.rmb.zoneDamageBoost*100}%` },
       { key:'L-Shift', name:'빗자루 올려치기', cost:0,
-        desc:`전방 넓은 부채꼴 올려치기(${BALANCE.prill.counter.damage}). 적중 시 ${BALANCE.prill.counter.boostDur/1000}초간 피해 증가 +${BALANCE.prill.counter.boostMult*100}%` },
+        desc:`전방 넓은 부채꼴 올려치기(${BALANCE.prill.counter.damage}). 적중 시 ${BALANCE.prill.counter.boostDur/1000}초간 피해량 +${BALANCE.prill.counter.boostMult*100}%` },
     ],
   },
 
@@ -3271,10 +3271,11 @@ function hitRemoteRaw(dmg) {
 
 // ── 스턴샷: 4초마다 다음 평타 0.5초 기절 ────────────────────
 function applyStunShot() {
-  // 평타(LMB)에서만 발동 — L._lmbAttacking 플래그로 구분
+  // 평타(LMB)에서만 발동 — 동기 플래그 OR 최근 3초 이내 LMB 발사 (투사체 딜레이 대응)
   if (getAugCount('stun_shot') <= 0) return;
   if (!L._stunShotReady) return;
-  if (!L._lmbAttacking) return;  // LMB 공격이 아니면 발동 안 함
+  const _lmbRecent = L._lmbAttacking || (performance.now() - (L._lmbFireTime||0) < 3000);
+  if (!_lmbRecent) return;
   L._stunShotReady = false;
   stunRemote(500);
   setTimeout(() => { if (gameOn) L._stunShotReady = true; }, 4000);
@@ -5466,7 +5467,7 @@ const SKILLS = {
 
       // ── 방향은 초기 각도에서 ±30도까지만 허용 ──
       const baseAngle = angle;
-      const maxAngleDrift = Math.PI / 6; // 30도
+      const maxAngleDrift = Math.PI / 12; // 15도
       const clampAngle = (a) => {
         let diff = ((a - baseAngle) + Math.PI*3) % (Math.PI*2) - Math.PI;
         diff = Math.max(-maxAngleDrift, Math.min(maxAngleDrift, diff));
@@ -5839,7 +5840,7 @@ document.addEventListener('keydown', e => {
 document.addEventListener('keyup', e => { keys[e.key.toLowerCase()]=false; });
 
 const getAngle = () => Math.atan2(mouseY-L.y, mouseX-L.x);
-function doLMB() { if (!gameOn||L.lmbCooldown>0) return; if (L.stunEnd && performance.now()<L.stunEnd) return; if (L.charDef?.id==='prill' && (L._prillZoneActive||L._prillZonePredelaying)) return; L._lmbAttacking=true; SKILLS[L.charDef?.id]?.lmb(getAngle()); L._lmbAttacking=false; }
+function doLMB() { if (!gameOn||L.lmbCooldown>0) return; if (L.stunEnd && performance.now()<L.stunEnd) return; if (L.charDef?.id==='prill' && (L._prillZoneActive||L._prillZonePredelaying)) return; L._lmbAttacking=true; L._lmbFireTime=performance.now(); SKILLS[L.charDef?.id]?.lmb(getAngle()); L._lmbAttacking=false; }
 function doRMB() { if (!gameOn) return; if (L.stunEnd && performance.now()<L.stunEnd) return; if (L.charDef?.id==='prill' && L._prillZoneActive) { SKILLS.prill.rmb(getAngle()); return; } if (L.rmbCooldown>0) return; SKILLS[L.charDef?.id]?.rmb(getAngle()); }
 
 // ============================================================
@@ -9129,7 +9130,7 @@ function loop() {
     const _rawAngle = getAngle();
     // ±30도 제한
     let _diff = ((_rawAngle - _zp.baseAngle) + Math.PI*3) % (Math.PI*2) - Math.PI;
-    _diff = Math.max(-Math.PI/6, Math.min(Math.PI/6, _diff));
+    _diff = Math.max(-Math.PI/12, Math.min(Math.PI/12, _diff));
     const _clamped = _zp.baseAngle + _diff;
     _zp.angle = _clamped;
     _zp.cos   = Math.cos(_clamped);
