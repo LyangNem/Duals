@@ -6567,14 +6567,14 @@ function moveBullets(dt=1) {
       if (hitPeerMinion) { localBullets.splice(i,1); continue; }
       if (rangeOut||oob||hitWall) { localBullets.splice(i,1); continue; }
       if (hitEnemy) {
-        // 하츠하츠: 버스트당 1회 피해, 명중 후 제거 (투사체 판정)
+        // 하츠하츠: 버스트당 1회 피해, 관통 (splice 없음)
         if (b.isHatsBolt && b.hatsBurstId) {
           if (!_firedBurstKb.has(b.hatsBurstId)) {
             _firedBurstKb.add(b.hatsBurstId);
-            hitRemote(b.damage); // 훈련장/일반 모두 hitRemote로 통일
+            hitRemote(b.damage);
             L._lmbAttacking = true; applyStunShot(); L._lmbAttacking = false;
           }
-          localBullets.splice(i, 1); continue;
+          continue; // 관통: 제거 안 함
         }
         // 체리티 산탄: 탄별 개별 피해 (중첩), 관통 없음
         if (b.isCherityBlast) {
@@ -6618,7 +6618,7 @@ function moveBullets(dt=1) {
     }
     if (b.traveled>=b.maxRange||b.x<0||b.x>WORLD_W||b.y<0||b.y>WORLD_H||(bulletHitsWall(b)&&!b.pierceWalls)) { peerBullets.splice(i,1); continue; }
     if (Math.hypot(b.x-L.x, b.y-L.y)<b.radius+L.radius) {
-      if (!b.pierceEnemies) b._hitLocal = true;
+      if (!b.pierceEnemies && !b.isHatsBolt) b._hitLocal = true;
       if (b.knockbackPower && b.burstId && !_firedBurstKb.has(b.burstId)) {
         _firedBurstKb.add(b.burstId);
         const ang = Math.atan2(L.y - b.y, L.x - b.x);
