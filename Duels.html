@@ -6029,6 +6029,7 @@ const SKILLS = {
           dx: Math.cos(_hAngle), dy: Math.sin(_hAngle),
           damage, maxRange: finalRange, traveled: 0,
           isHatsBolt: true,
+          pierceEnemies: true,
           hatsBurstId: _hatsBurstId,
           clampT,
         };
@@ -6386,8 +6387,7 @@ function moveBullets(dt=1) {
     b.x+=b.dx*b.speed*dt; b.y+=b.dy*b.speed*dt; b.traveled+=b.speed*dt;
     const oob = b.x<0||b.x>WORLD_W||b.y<0||b.y>WORLD_H;
     const hitWall = bulletHitsWall(b) && !b.pierceWalls;
-    const _rRad = _trainingMode ? (R._botRadius||20) : R.radius;
-    const hitEnemy = Math.hypot(b.x-R.x, b.y-R.y)<b.radius+_rRad;
+    const hitEnemy = Math.hypot(b.x-R.x, b.y-R.y)<b.radius+R.radius;
     // 훈련장: 모든 봇에 대해 충돌 체크 (hitEnemy 와 독립적으로)
     if (_trainingMode && !b.isElinHeal) {
       for (const _tbot of _trainingBots) {
@@ -9205,24 +9205,22 @@ function loop() {
   // 훈련장: 매 프레임 시작 시 R을 마우스 방향 가장 가까운 봇으로 설정
   // 이렇게 하면 모든 기존 공격 판정이 자동으로 봇을 적중
   if (_trainingMode) {
-    // 마우스 방향 기준 가장 가까운 봇을 R로 설정
+    // R = L에서 마우스 방향 1px 오프셋 (사전체크/각도체크 통과용)
+    // R.radius = 실제 봇 radius → hitEnemy/망치 등 정상
     const _mwx = mouseScreenX + cam.x, _mwy = mouseScreenY + cam.y;
+    const _aimAng = Math.atan2(_mwy - L.y, _mwx - L.x);
     let _bestBot = null, _bestDist = Infinity;
     for (const bot of _trainingBots) {
       if (bot.hidden || !bot.isAlive) continue;
       const _d = Math.hypot(bot.x - _mwx, bot.y - _mwy);
       if (_d < _bestDist) { _bestDist = _d; _bestBot = bot; }
     }
-    if (_bestBot) {
-      R.x = _bestBot.x; R.y = _bestBot.y;
-      // radius를 크게 설정해 사전 체크(dist < range + R.radius)가
-      // 더 쉽게 통과되도록 (실제 피해는 hitCtx에서 bot 직접 체크)
-      R.radius = 9999; // 사전 체크 항상 통과
-      R._botRadius = _bestBot.radius; // 실제 봇 radius (투사체 판정용)
-      R.maxHealth = _bestBot.maxHp;
-      R.health = _bestBot.hp;
-      R.burrowing = false; R.stunEnd = 0; R.bindEnd = 0;
-    }
+    R.x = L.x + Math.cos(_aimAng);
+    R.y = L.y + Math.sin(_aimAng);
+    R.radius = _bestBot ? _bestBot.radius : 20;
+    R.maxHealth = _bestBot ? _bestBot.maxHp : 200;
+    R.health = _bestBot ? _bestBot.hp : 200;
+    R.burrowing = false; R.stunEnd = 0; R.bindEnd = 0;
   }
 
   // 적 타겟 목록 갱신 (플레이어 + 소환수)
