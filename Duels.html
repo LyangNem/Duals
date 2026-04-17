@@ -206,7 +206,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.5.6</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.5.7</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -333,8 +333,8 @@ input[type=text]:focus{border-color:#4af;}
   </div>
 
   <div style="margin-top:20px;">
+    <p class="status" id="between-status" style="min-height:18px;margin-bottom:8px;"></p>
     <button class="btn big" id="between-ready-btn" onclick="betweenReady()">준비 완료</button>
-    <p class="status" id="between-status" style="margin-top:8px;"></p>
   </div>
 </div>
 
@@ -3405,6 +3405,7 @@ function receiveKnockback(vx, vy) {
   if (L.color === '#ffd700') { L.color = L.defaultColor; L._preFlashColor = null; send({type:'colorChange', color:L.defaultColor}); }
   // 메인마드 차징 중단
   if (L._drillCharging) { L._drillCharging = false; }
+  L._drillToken = (L._drillToken || 0) + 1; // 드릴 선딜 취소
   // 타우 체인 대시 중단
   if (L._tauDashInterval) { clearInterval(L._tauDashInterval); L._tauDashInterval = null; }
   // 리안 방패 돌진 윈도우 취소
@@ -3780,16 +3781,16 @@ const SKILLS = {
       const len    = B.minLength + (B.maxLength - B.minLength) * t;
       const cost   = Math.round(B.costMin + (B.costMax - B.costMin) * t);
       // 동결 상태(스테미나 소진으로 동결)면 이미 전부 소모 → 추가 차감 없이 발동
-      if (!forced && frozenT === null || frozenT === undefined) {
+      if (!forced && (frozenT === null || frozenT === undefined)) {
         const remaining = Math.max(0, cost - drained);
         if (remaining > 0 && !useStam(remaining)) return;
       }
 
       // 차징 비례 선딜레이 (최대 0.5초)
       const _drillPreDelay = Math.round(t * 500);
-      const _drillAngle = angle;
       const _drillLen = len, _drillDmg = damage;
-      const _drillTok = ++L._counterToken;
+      L._drillToken = (L._drillToken || 0) + 1;
+      const _drillTok = L._drillToken;
       // 선딜레이 중 색상 변경 없음 (노란색 아님)
       if (_drillPreDelay > 0) {
         L._attackPreview = { shapes:[{type:'rect', len:_drillLen, width:B.width}] };
@@ -3797,7 +3798,7 @@ const SKILLS = {
       L.lmbCooldown = B.cd + _drillPreDelay; L.lastAttackTime = performance.now();
       setTimeout(() => {
         L._attackPreview = null;
-        if (!gameOn || L._counterToken !== _drillTok) return;
+        if (!gameOn || L._drillToken !== _drillTok) return;
         const _fa = getAngle();
         const cos = Math.cos(_fa), sin = Math.sin(_fa);
         hitCtxAll({x:L.x, y:L.y, cos, sin, len:_drillLen, width:B.width}, _drillDmg);
@@ -4038,7 +4039,7 @@ const SKILLS = {
     lmbRelease(angle) {
       if (!L._mhCharging) return;
       L._mhCharging = false;
-      if (!gameOn || L.lmbCooldown > 0) return;
+      if (!gameOn) return;
       const B = BALANCE.mehugu;
       const held = performance.now() - L._mhChargeStart;
 
@@ -5679,12 +5680,11 @@ const SKILLS = {
         const _hAngle = angle + _hSpread;
         const b = {
           id: uid(), x: L.x, y: L.y,
-          radius: 5,
+          radius: augBulletRadius(5),
           speed: _hatsSpd,
           dx: Math.cos(_hAngle), dy: Math.sin(_hAngle),
           damage, maxRange: finalRange, traveled: 0,
           isHatsBolt: true,
-          pierceEnemies: true,
           hatsBurstId: _hatsBurstId,
           clampT,
         };
@@ -6204,22 +6204,21 @@ function moveBullets(dt=1) {
       if (hitPeerMinion) { localBullets.splice(i,1); continue; }
       if (rangeOut||oob||hitWall) { localBullets.splice(i,1); continue; }
       if (hitEnemy) {
-        // 하츠하츠: 관통 + 버스트당 1회 피해·소리
+        // 하츠하츠: 버스트당 1회 피해, 명중 후 제거 (투사체 판정)
         if (b.isHatsBolt && b.hatsBurstId) {
           if (!_firedBurstKb.has(b.hatsBurstId)) {
             _firedBurstKb.add(b.hatsBurstId);
-            // 피해는 hitRemote 대신 직접 처리 (소리 중복 방지)
             const _hDmg = applyDmgAugs(b.damage);
             R.health = Math.max(0, R.health - _hDmg);
             send({type:'hitMe', damage:_hDmg});
             addShake(Math.min(4+_hDmg*0.12,10), 14);
-            playHitSfx();  // 1회만
+            playHitSfx();
             applyLifesteal(_hDmg);
             applyPoison(_hDmg);
             L._lmbAttacking = true; applyStunShot(); L._lmbAttacking = false;
           }
-          // 관통: splice 없이 계속 진행
-          continue;
+          // 버스트 전체 제거 (투사체처럼 적에서 멈춤)
+          localBullets.splice(i, 1); continue;
         }
         // 체리티 산탄: 탄별 개별 피해 (중첩), 관통 없음
         if (b.isCherityBlast) {
@@ -8295,6 +8294,7 @@ function showBetweenScreen() {
   matchState._peerSelectedChar  = null;
   matchState._peerSelectedAug   = null;
   matchState._betweenStarted    = false;
+  matchState._augWarnConfirmed  = false;
 
   // 버튼·상태 완전 초기화 (라운드 넘어갈 때 잔류 방지)
   const readyBtn = document.getElementById('between-ready-btn');
@@ -8442,6 +8442,18 @@ function updatePeerAugDisplay() {
 
 function betweenReady() {
   if (matchState._localBetweenReady) return;
+  // 패배자인데 증강을 선택하지 않았으면 경고
+  const _isLoserNow = matchState.lastWinner !== 'local';
+  if (_isLoserNow && matchState._augChoices.length > 0 && !matchState._selectedAug) {
+    setStatus('between-status', '⚠ 증강을 선택하지 않았습니다. 계속하려면 다시 누르세요.', 'err');
+    matchState._augWarnShown = true;
+    // 한 번 경고 후 두 번째 클릭에서 통과
+    if (!matchState._augWarnConfirmed) {
+      matchState._augWarnConfirmed = true;
+      return;
+    }
+  }
+  matchState._augWarnConfirmed = false;
   matchState._localBetweenReady = true;
 
   // 선택 결과 증강 적용
