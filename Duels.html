@@ -209,7 +209,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.7.2</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.7.1</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -1271,8 +1271,8 @@ const BALANCE = {
       radius:     10,
       range:      650,
       cd:         380,
-      homingMin:  0.15,  // 이 비율 이후 호밍 시작
-      homingMax:  0.28,  // 사거리 끝에서 최대 호밍 강도 (rad/frame)
+      homingMin:  0.25,  // 이 비율 이후 호밍 시작
+      homingMax:  0.09,  // 사거리 끝에서 최대 호밍 강도 (rad/frame)
     },
     rmb: {
       cost:         60,
@@ -6561,13 +6561,33 @@ function moveBullets(dt=1) {
       const B=BALANCE.dazbin.lmb;
       const ratio=b.traveled/B.range;
       if (ratio>B.homingMin) {
-        const str=(ratio-B.homingMin)/(1-B.homingMin)*B.homingMax;
-        const toRx=R.x-b.x, toRy=R.y-b.y;
-        const toRlen=Math.hypot(toRx,toRy)||1;
-        const tx2=toRx/toRlen, ty2=toRy/toRlen;
-        b.dx+=(tx2-b.dx)*str; b.dy+=(ty2-b.dy)*str;
-        const len2=Math.hypot(b.dx,b.dy)||1;
-        b.dx/=len2; b.dy/=len2;
+        // 스티어링 호밍: 최대 회전각(rad/frame)으로 목표 방향으로 회전
+        const _maxTurn = (ratio-B.homingMin)/(1-B.homingMin) * B.homingMax;
+        // 호밍 타겟: R + peerMinions 중 가장 가까운 것
+        let _htx=(_trainingMode && R._homingX!=null)?R._homingX:R.x;
+        let _hty=(_trainingMode && R._homingY!=null)?R._homingY:R.y;
+        let _hd=Math.hypot(_htx-b.x,_hty-b.y);
+        for (const _pm of peerMinions) {
+          const _pd=Math.hypot(_pm.x-b.x,_pm.y-b.y);
+          if (_pd<_hd){_hd=_pd;_htx=_pm.x;_hty=_pm.y;}
+        }
+        if (_trainingMode) {
+          for (const _tb of _trainingBots) {
+            if (_tb.hidden||!_tb.isAlive) continue;
+            const _pd=Math.hypot(_tb.x-b.x,_tb.y-b.y);
+            if (_pd<_hd){_hd=_pd;_htx=_tb.x;_hty=_tb.y;}
+          }
+        }
+        const _tx=_htx-b.x, _ty=_hty-b.y;
+        const _tlen=Math.hypot(_tx,_ty)||1;
+        const _tarAng=Math.atan2(_ty,_tx);
+        const _curAng=Math.atan2(b.dy,b.dx);
+        // 각도 차이 (-π ~ π)
+        let _dAng=((_tarAng-_curAng)+Math.PI*3)%(Math.PI*2)-Math.PI;
+        // 최대 회전각으로 클램프
+        _dAng=Math.max(-_maxTurn, Math.min(_maxTurn, _dAng));
+        const _newAng=_curAng+_dAng;
+        b.dx=Math.cos(_newAng); b.dy=Math.sin(_newAng);
       }
     }
     // ── 다즈빈 파동 구체: 틱 피해 ──
@@ -6822,12 +6842,13 @@ function moveBullets(dt=1) {
       const _B=BALANCE.dazbin.lmb;
       const _ratio=b.traveled/_B.range;
       if (_ratio>_B.homingMin) {
-        const _str=(_ratio-_B.homingMin)/(1-_B.homingMin)*_B.homingMax;
-        const _tlx=L.x-b.x, _tly=L.y-b.y;
-        const _tll=Math.hypot(_tlx,_tly)||1;
-        b.dx+=(_tlx/_tll-b.dx)*_str; b.dy+=(_tly/_tll-b.dy)*_str;
-        const _ll=Math.hypot(b.dx,b.dy)||1;
-        b.dx/=_ll; b.dy/=_ll;
+        const _maxT=(_ratio-_B.homingMin)/(1-_B.homingMin)*_B.homingMax;
+        const _tarAngP=Math.atan2(L.y-b.y, L.x-b.x);
+        const _curAngP=Math.atan2(b.dy,b.dx);
+        let _dAngP=((_tarAngP-_curAngP)+Math.PI*3)%(Math.PI*2)-Math.PI;
+        _dAngP=Math.max(-_maxT, Math.min(_maxT, _dAngP));
+        const _nAngP=_curAngP+_dAngP;
+        b.dx=Math.cos(_nAngP); b.dy=Math.sin(_nAngP);
       }
     }
     // ── 다즈빈 파동 구체 틱 피해 (상대 화면) ──
@@ -9557,12 +9578,16 @@ function loop() {
       const _d = Math.hypot(bot.x - _mwx, bot.y - _mwy);
       if (_d < _bestDist) { _bestDist = _d; _bestBot = bot; }
     }
+    // 사전체크/각도체크용: L에서 1px 오프셋 (마우스 방향)
     R.x = L.x + Math.cos(_aimAng);
     R.y = L.y + Math.sin(_aimAng);
     R.radius = _bestBot ? _bestBot.radius : 20;
     R.maxHealth = _bestBot ? _bestBot.maxHp : 200;
     R.health = _bestBot ? _bestBot.hp : 200;
     R.burrowing = false; R.stunEnd = 0; R.bindEnd = 0;
+    // 호밍용 타겟: 마우스에 가장 가까운 봇의 실제 위치
+    R._homingX = _bestBot ? _bestBot.x : R.x;
+    R._homingY = _bestBot ? _bestBot.y : R.y;
   }
 
   // 적 타겟 목록 갱신 (플레이어 + 소환수)
