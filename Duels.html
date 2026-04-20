@@ -209,7 +209,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.9.0</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.9.3</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -1344,11 +1344,6 @@ const BALANCE = {
       empoweredPredelay: 0,
       empoweredInner:    0,       // 강화 시 원 내부도 피해
       empoweredDamage:   35,
-      // 회전 모드 (1.5초 이상 공격 안하면 자동 회전)
-      idleTrigger:    1000,       // ms
-      spinRange:      170,
-      spinDamage:     10,
-      spinTickInterval: 200,
     },
     rmb: {
       cost:           60,
@@ -1797,7 +1792,7 @@ const CHARACTERS = {
       { key:'LMB', name:'텔레포트 단검', cost:BALANCE.yui.lmb.cost,
         desc:`전방 부채꼴 베기. 적중 시 마우스 방향 순간이동 (${BALANCE.yui.lmb.damage})` },
       { key:'RMB', name:'타임라인', cost:BALANCE.yui.rmb.cost,
-        desc:`${BALANCE.yui.rmb.rewindTime/1000}초 전의 위치로 되돌아감. 체력/스테미나도 복원` },
+        desc:`${BALANCE.yui.rmb.rewindTime/1000}초 전의 위치로 되돌아감. 스테미나도 복원` },
       { key:'L-Shift', name:'순간이동 베기', cost:0,
         desc:`전방으로 순간이동하며 경로상 적에게 피해 (${BALANCE.yui.counter.damage})` },
     ],
@@ -1814,7 +1809,7 @@ const CHARACTERS = {
     desc:      '모루로 자신의 망치를 강화하는 대장장이',
     skills: [
       { key:'LMB', name:'망치질', cost:BALANCE.peluna.lmb.cost,
-        desc:`0.3초 선딜레이 후 범위 끝에 피해. 1초간 미공격 시 주변 자동 회전 공격 (${BALANCE.peluna.lmb.damage}/${BALANCE.peluna.lmb.spinDamage})` },
+        desc:`0.3초 선딜레이 후 원주 범위 피해 (${BALANCE.peluna.lmb.damage})` },
       { key:'RMB', name:'모루 던지기', cost:BALANCE.peluna.rmb.cost,
         desc:`모루를 던져 피해. 착탄 지점에 ${BALANCE.peluna.rmb.anvilDuration/1000}초간 강화지대 생성 (${BALANCE.peluna.rmb.damage})` },
       { key:'L-Shift', name:'인력 망치', cost:0,
@@ -2350,6 +2345,8 @@ function onData(d) {
       // 상대 클럭 오프셋 추정 (네트워크 지연 무시, 단순 차이)
       if (d.sendTime) R._clockOffset = performance.now() - d.sendTime;
       R.tx=d.x; R.ty=d.y; R.health=d.health; R.stamina=d.stamina;
+      // 시각 위치 목표 (draw 보간용)
+      if (R._vx === undefined) { R._vx=d.x; R._vy=d.y; } R._vtx=d.x; R._vty=d.y; R._vt=performance.now();
       if (d.maxHealth) R.maxHealth = d.maxHealth;
       R.dodging=d.dodging; R.counterReady=d.counterReady??false;
       R.toolbox=d.toolbox??null;
@@ -2379,8 +2376,7 @@ function onData(d) {
       R.reikaBlessed=d.reikaBlessed??false;
       R.fortressActive=d.fortressActive??false;
       // 펠루나 회전 망치 위치 동기화
-      R._pelunaHammers = d.pelunaHammers ?? null;
-      // 펠루나 모루/강화지대 동기화
+            // 펠루나 모루/강화지대 동기화
       if (d.pelunaAnvil) {
         const _offset = R._clockOffset ?? 0;
         const _newExpiry = d.pelunaAnvil.createdAt + _offset + d.pelunaAnvil.duration;
@@ -6501,7 +6497,6 @@ const SKILLS = {
       }
       const _sx = L.x, _sy = L.y;
       L.x = _snap.x; L.y = _snap.y;
-      L.health = Math.min(L.maxHealth, _snap.hp);
       L.stamina = Math.min(L._augStamMax ?? STAM_MAX, _snap.stam);
       resolveWall(L);
       addFx({type:'yuiRewind', x:_sx, y:_sy, tx:L.x, ty:L.y, dur:18, maxDur:18});
@@ -7167,7 +7162,7 @@ function moveBullets(dt=1) {
     const hitWall = bulletHitsWall(b) && !b.pierceWalls;
     const hitEnemy = Math.hypot(b.x-R.x, b.y-R.y)<b.radius+R.radius;
     // 훈련장: 모든 봇에 대해 충돌 체크 (hitEnemy 와 독립적으로)
-    if (_trainingMode && !b.isElinHeal && !b.isRocket && !b.isTauSickle && !b.isElinOrb && !b.isPelunaAnvil && !b.isPelunaHammer) {
+    if (_trainingMode && !b.isElinHeal && !b.isRocket && !b.isTauSickle && !b.isElinOrb && !b.isPelunaAnvil) {
       for (const _tbot of _trainingBots) {
         if (_tbot.hidden || !_tbot.isAlive) continue;
         if (Math.hypot(b.x - _tbot.x, b.y - _tbot.y) < b.radius + _tbot.radius) {
@@ -7200,7 +7195,7 @@ function moveBullets(dt=1) {
     // 상대 소환수 명중 판정 — 명중 시 minionHit 패킷 전송 후 탄환 제거
     // isElinOrb/isElinHeal은 관통 탄환이므로 제외 (폭발 시점에 별도 처리)
     let hitPeerMinion = false;
-    if (!b.isTauSickle && !b.isRocket && !b.isBomb && !b.isMaisilOrb && !b.isElinOrb && !b.isElinHeal && !b.isPelunaAnvil && !b.isPelunaHammer) {
+    if (!b.isTauSickle && !b.isRocket && !b.isBomb && !b.isMaisilOrb && !b.isElinOrb && !b.isElinHeal && !b.isPelunaAnvil) {
       for (const pm of peerMinions) {
         if (Math.hypot(b.x - pm.x, b.y - pm.y) < b.radius + pm.radius) {
           send({ type: 'minionHit', id: pm.id, damage: b.damage });
@@ -7515,6 +7510,22 @@ function moveBullets(dt=1) {
 // draw.js — 전체 렌더링 (맵·플레이어·탄환·이펙트·미니맵)
 // ============================================================
 function draw() {
+  // ── 상대 시각 위치 보간 (draw 전용, 판정과 분리) ──
+  const _drawNow = performance.now();
+  const _dtMs = Math.min(50, _drawNow - (draw._lastTime || _drawNow));
+  draw._lastTime = _drawNow;
+  const _dlf = 1 - Math.exp(-_dtMs * 0.018); // 지수 감쇠 보간 (~55ms 반감기)
+  if (R._vx !== undefined && R._vtx !== undefined) {
+    R._vx += (R._vtx - R._vx) * _dlf;
+    R._vy += (R._vty - R._vy) * _dlf;
+  }
+  for (const _pm of peerMinions) {
+    if (_pm.tx !== undefined) {
+      if (_pm._vx === undefined) { _pm._vx = _pm.tx; _pm._vy = _pm.ty; }
+      _pm._vx += (_pm.tx - _pm._vx) * _dlf;
+      _pm._vy += (_pm.ty - _pm._vy) * _dlf;
+    }
+  }
   ctx.clearRect(0,0,CANVAS.width,CANVAS.height);
   updateCam();
   const so = getShakeOffset();
@@ -8495,11 +8506,6 @@ function draw() {
       const _ar = f.maxR * _at;
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1,_ar), 0, Math.PI*2);
       ctx.strokeStyle=`rgba(255,180,80,${a*(1-_at)*0.9})`; ctx.lineWidth=4; ctx.stroke();
-    } else if (f.type==='pelunaSpinOrbit') {
-      // 자동 회전 망치 — 궤도 링만 (망치는 bullet로 렌더)
-      ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI*2);
-      ctx.strokeStyle=`rgba(160,160,170,${a*0.3})`; ctx.lineWidth=1.5;
-      ctx.setLineDash([5,6]); ctx.stroke(); ctx.setLineDash([]);
 
     } else if (f.type==='yuiSlash') {
       // 유이 단검 — 파란 부채꼴 공격 범위 (오른쪽→왼쪽 스윕)
@@ -9125,22 +9131,7 @@ function draw() {
     }
   }
 
-  // 펠루나 회전 망치 렌더링 (로컬) — 시간 기반 독립 계산
-  if (gameOn && L.charDef?.id === 'peluna' && L._pelunaSpinStart) {
-    const _now = performance.now();
-    const _spinSpeed = 0.004; // rad/ms (loop과 동일)
-    const _curAng = (_now - L._pelunaSpinStart) * _spinSpeed;
-    const _PB = BALANCE.peluna.lmb;
-    const _hpulse = 0.5 + 0.5 * Math.sin(_now * 0.02);
-    for (let _hi=0; _hi<2; _hi++) {
-      const _ang = _curAng + _hi * Math.PI;
-      const _rx = L.x + Math.cos(_ang) * _PB.spinRange;
-      const _ry = L.y + Math.sin(_ang) * _PB.spinRange;
-      ctx.beginPath(); ctx.arc(_rx, _ry, 22, 0, Math.PI*2);
-      ctx.fillStyle = `rgba(120,120,130,0.28)`; ctx.fill();
-      ctx.strokeStyle = `rgba(180,180,190,${0.4+0.6*_hpulse})`; ctx.lineWidth = 2 + _hpulse*2; ctx.stroke();
-    }
-  }
+
 
   // 상대 펠루나 강화지대 렌더링 (L과 동일한 색/투명도)
   if (R._pelunaAnvil) {
@@ -9161,14 +9152,7 @@ function draw() {
   }
 
   // 상대 펠루나 회전 망치 렌더링
-  if (R._pelunaHammers && R._pelunaHammers.length > 0) {
-    const _hpulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.02);
-    for (const _rh of R._pelunaHammers) {
-      ctx.beginPath(); ctx.arc(_rh.x, _rh.y, _rh.radius, 0, Math.PI*2);
-      ctx.fillStyle = `rgba(120,120,130,0.28)`; ctx.fill();
-      ctx.strokeStyle = `rgba(180,180,190,${0.4+0.6*_hpulse})`; ctx.lineWidth = 2 + _hpulse*2; ctx.stroke();
-    }
-  }
+
 
   drawBullets(localBullets, L.defaultColor);
   drawBullets(peerBullets,  R.defaultColor);
@@ -9300,12 +9284,20 @@ function draw() {
     }
     if (_rAlpha > 0.01 && !_trainingMode) {
       if (_rInSmoke) { ctx.save(); ctx.globalAlpha = _rAlpha; }
+      // 시각 위치를 R.x/R.y에 임시 적용 (drawPlayer용)
+      const _rRealX=R.x, _rRealY=R.y;
+      if (R._vx !== undefined) { R.x=R._vx; R.y=R._vy; }
       drawPlayer(R,'상대');
+      R.x=_rRealX; R.y=_rRealY;
       if (_rInSmoke) ctx.restore();
     }
   }
   drawAttackPreview(L._attackPreview);
+  // 소환수 시각 위치 임시 적용
+  const _pmSnaps = peerMinions.map(pm => ({rx:pm.x, ry:pm.y}));
+  peerMinions.forEach((pm,i) => { if (pm._vx!==undefined) { pm.x=pm._vx; pm.y=pm._vy; } });
   drawMinions();
+  peerMinions.forEach((pm,i) => { pm.x=_pmSnaps[i].rx; pm.y=_pmSnaps[i].ry; });
   drawPlayer(L,'나');
 
   // 훈련장 봇 렌더링 (반드시 ctx.restore() 전, 월드-스페이스)
@@ -10459,8 +10451,8 @@ function resetL() {
   L._prillZoneToken=0;
   L._dazPortals=[]; // 다즈빈 포탈 초기화
   L._yuiHistory=[]; L._yuiLastSample=0; // 유이 히스토리 초기화
-  L._pelunaAnvils=[]; L._pelunaEmpowerExpiry=0; L._pelunaPreswing=false; L._pelunaToken=0; L._pelunaSpinStart=null; L._spinHitCooldown=new Map();
-  R._pelunaAnvil=null; R._pelunaHammers=null;
+  L._pelunaAnvils=[]; L._pelunaEmpowerExpiry=0; L._pelunaPreswing=false; L._pelunaToken=0
+  R._pelunaAnvil=null;
     if (_dodgeInterval) { clearInterval(_dodgeInterval); _dodgeInterval=null; }
 }
 
@@ -10523,12 +10515,6 @@ function startGame() {
                 active:L._prillZoneActive, boosted:L._prillZoneBoosted,
                 hitsLeft:L._prillZoneHitsLeft }
             : null,
-          pelunaHammers: (L.charDef?.id==='peluna' && L._pelunaSpinStart)
-            ? [0,1].map(_i => {
-                const _a = (performance.now()-L._pelunaSpinStart)*0.004 + _i*Math.PI;
-                return {x: L.x+Math.cos(_a)*BALANCE.peluna.lmb.spinRange, y: L.y+Math.sin(_a)*BALANCE.peluna.lmb.spinRange, radius:22};
-              })
-            : null,
           pelunaAnvil: (L.charDef?.id==='peluna' && L._pelunaAnvils?.length)
             ? { x:L._pelunaAnvils[0].x, y:L._pelunaAnvils[0].y,
                 radius:L._pelunaAnvils[0].radius,
@@ -10558,6 +10544,11 @@ function startGame() {
     window._gameTimer=setTimeout(scheduleLoop, 0);
   }
   window._audioCtx.resume().then(() => scheduleLoop());
+  // draw는 rAF로 분리 — 모니터 주사율과 동기화
+  (function rafLoop() {
+    if (gameOn) draw();
+    requestAnimationFrame(rafLoop);
+  })();
 }
 
 // ============================================================
@@ -10572,6 +10563,9 @@ function loop() {
   const rawDt  = lastLoopTime ? (now-lastLoopTime) : FRAME_MS;
   const physDt = Math.min(rawDt, FRAME_MS);
   const dt     = physDt / FRAME_MS;
+  // 이전 프레임 위치 저장 (보간용)
+  L._prevX = L.x; L._prevY = L.y;
+  L._loopTime = now;
   lastLoopTime = now;
   tickShake(dt);
 
@@ -10603,68 +10597,7 @@ function loop() {
   // 적 타겟 목록 갱신 (플레이어 + 소환수)
   refreshEnemyTargets();
 
-  // 펠루나 자동 회전 공격 — 완전 시간 기반, 상태 최소화
-  if (gameOn && L.charDef?.id === 'peluna') {
-    const PB = BALANCE.peluna.lmb;
-    const _pnow = performance.now();
-    const _idle = _pnow - (L.lastAttackTime||0) >= PB.idleTrigger;
-    if (_idle) {
-      if (!L._pelunaSpinStart) L._pelunaSpinStart = _pnow;
-      if (!L._spinHitCooldown) L._spinHitCooldown = new Map();
-      // 이전 버전 localBullets 잔재 제거
-      for (let _ci=localBullets.length-1; _ci>=0; _ci--) {
-        if (localBullets[_ci].isPelunaHammer) localBullets.splice(_ci,1);
-      }
-      // 현재 시각 기준 각도
-      const _spinSpeed = 0.004; // rad/ms
-      const _curAng = (_pnow - L._pelunaSpinStart) * _spinSpeed;
-      const _shcd = L._spinHitCooldown;
-      // 피해 판정 2번 (망치 2개)
-      for (let _hi=0; _hi<2; _hi++) {
-        const _ang = _curAng + _hi * Math.PI;
-        const _hx = L.x + Math.cos(_ang) * PB.spinRange;
-        const _hy = L.y + Math.sin(_ang) * PB.spinRange;
-        const _hitR = 22;
-        if (_trainingMode) {
-          for (const _sb of _trainingBots) {
-            if (_sb.hidden||!_sb.isAlive) continue;
-            if (Math.hypot(_sb.x-_hx, _sb.y-_hy) < _hitR+_sb.radius) {
-              const _cd = _shcd.get(_sb.id+'_'+_hi) || 0;
-              if (_pnow >= _cd) {
-                _shcd.set(_sb.id+'_'+_hi, _pnow + 300);
-                _applyBotDamage(_sb, applyDmgAugs(PB.spinDamage));
-                addShake(3, 8); playHitSfx();
-              }
-            }
-          }
-        } else {
-          if (Math.hypot(R.x-_hx, R.y-_hy) < _hitR+R.radius) {
-            const _cd = _shcd.get('R_'+_hi) || 0;
-            if (_pnow >= _cd) {
-              _shcd.set('R_'+_hi, _pnow + 300);
-              hitRemote(PB.spinDamage);
-              addShake(3, 8);
-            }
-          }
-          for (const pm of peerMinions) {
-            if (Math.hypot(pm.x-_hx, pm.y-_hy) < _hitR+pm.radius) {
-              const _cd = _shcd.get('pm_'+pm.id+'_'+_hi) || 0;
-              if (_pnow >= _cd) {
-                _shcd.set('pm_'+pm.id+'_'+_hi, _pnow + 300);
-                send({type:'minionHit', id:pm.id, damage:PB.spinDamage});
-              }
-            }
-          }
-        }
-      }
-    } else {
-      L._pelunaSpinStart = null;
-      if (L._spinHitCooldown) L._spinHitCooldown.clear();
-      for (let _i=localBullets.length-1; _i>=0; _i--) {
-        if (localBullets[_i].isPelunaHammer) localBullets.splice(_i, 1);
-      }
-    }
-  }
+
 
   // 유이 히스토리 기록
   if (gameOn && L.charDef?.id === 'yui') {
@@ -11327,8 +11260,9 @@ function loop() {
     }
   }
 
+  // peerMinions 목표 위치는 loop에서도 같은 비율로 유지 (충돌/판정용)
   const lf=1-Math.pow(1-0.22, dt);
-  R.x+=(R.tx-R.x)*lf; R.y+=(R.ty-R.y)*lf;
+  R.x+=(R.tx-R.x)*lf; R.y+=(R.ty-R.y)*lf; // 판정용 R 위치 (draw와 별개)
   // peerMinions 위치 보간 (끊김 방지)
   for (const pm of peerMinions) {
     if (pm.tx !== undefined) {
@@ -11452,7 +11386,6 @@ function loop() {
   }
 
   updateLocalHud();
-  draw();
 }
 
 // ============================================================
