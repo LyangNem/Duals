@@ -209,7 +209,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.9.4</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.9.5</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -6464,13 +6464,14 @@ const SKILLS = {
       if (L.lmbCooldown > 0) return;
       if (!useStam(B.cost)) return;
       // 부채꼴 베기
-      const hit = hitCtxAll({x:L.x, y:L.y, angle, range:B.range, halfAngle:B.halfAngle}, B.damage);
-      addFx({type:'yuiSlash', x:L.x, y:L.y, angle, range:B.range, halfAngle:B.halfAngle, dur:25, maxDur:25});
-      send({type:'fx', fx:{type:'yuiSlash', x:L.x, y:L.y, angle, range:B.range, halfAngle:B.halfAngle, dur:25, maxDur:25}});
+      const _yuiRange = augMeleeRange(B.range);
+      const hit = hitCtxAll({x:L.x, y:L.y, angle, range:_yuiRange, halfAngle:B.halfAngle}, B.damage);
+      addFx({type:'yuiSlash', x:L.x, y:L.y, angle, range:_yuiRange, halfAngle:B.halfAngle, dur:25, maxDur:25});
+      send({type:'fx', fx:{type:'yuiSlash', x:L.x, y:L.y, angle, range:_yuiRange, halfAngle:B.halfAngle, dur:25, maxDur:25}});
       // 적중 시 마우스 방향 이동 + 사운드
       if (hit) {
         playHitSfx();
-        const _dist = B.range * B.tpMult;
+        const _dist = _yuiRange * B.tpMult;
         const _tx = Math.max(L.radius, Math.min(WORLD_W-L.radius, L.x + Math.cos(angle)*_dist));
         const _ty = Math.max(L.radius, Math.min(WORLD_H-L.radius, L.y + Math.sin(angle)*_dist));
         const _sx = L.x, _sy = L.y;
