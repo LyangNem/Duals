@@ -209,7 +209,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.9.6</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.10.0</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -1396,7 +1396,40 @@ const BALANCE = {
       cd:          300,
     },
   },
+
+  // ── 셰리나 비아 ─────────────────────────────────────────────
+  sherina: {
+    hp:     100,
+    speed:  3.75,
+    radius: 20,
+    lmb: {
+      cost:       30,
+      damage:     20,      // 에코 직격 피해
+      radius:     10,
+      speed:      20,
+      range:      600,
+      cd:         350,
+      echoDur:    1500,    // 잔향 지속 ms
+      echoRadius: 18,      // 잔향 판정 반경
+      echoDamage: 10,      // 잔향 통과 피해
+      echoTickInterval: 500, // 잔향 피해 간격 ms (0.5초)
+    },
+    rmb: {
+      cost:       80,
+      cd:         5000,
+      maxPaths:   3,       // 기억하는 최대 경로 수
+    },
+    counter: {
+      cost:       0,
+      damage:     20,
+      range:      180,
+      halfAngle:  Math.PI * 0.15,
+      predelay:   300,
+      cd:         300,
+    },
+  },
 };
+
 
 const STAM_MAX   = BALANCE.stam.max;
 const STAM_DELAY = BALANCE.stam.regenDelay;
@@ -1814,6 +1847,25 @@ const CHARACTERS = {
         desc:`모루를 던져 피해. 착탄 지점에 ${BALANCE.peluna.rmb.anvilDuration/1000}초간 강화지대 생성 (${BALANCE.peluna.rmb.damage})` },
       { key:'L-Shift', name:'인력 망치', cost:0,
         desc:`주변 적을 끌어당기고 피해 (${BALANCE.peluna.counter.damage}). ${BALANCE.peluna.counter.empowerDur/1000}초간 평타 강화` },
+    ],
+  },
+
+  sherina: {
+    id:        'sherina',
+    name:      '셰리나 비아',
+    color:     '#6633cc',
+    maxHealth: BALANCE.sherina.hp,
+    speed:     BALANCE.sherina.speed,
+    radius:    BALANCE.sherina.radius,
+    statsText: [['체력',String(BALANCE.sherina.hp)],['이동속도','느림'],['스타일','잔향 트랩형 원거리']],
+    desc:      '에코의 잔향을 이용해 공간을 장악하는 음파 사수',
+    skills: [
+      { key:'LMB', name:'소리의 활', cost:BALANCE.sherina.lmb.cost,
+        desc:`에코 발사. 경로에 ${BALANCE.sherina.lmb.echoDur/1000}초 잔향 남김 (${BALANCE.sherina.lmb.damage}/${BALANCE.sherina.lmb.echoDamage})` },
+      { key:'RMB', name:'더블링', cost:BALANCE.sherina.rmb.cost,
+        desc:`최근 에코 경로 ${BALANCE.sherina.rmb.maxPaths}개에 파장을 보내 확장 공격` },
+      { key:'L-Shift', name:'백스텝', cost:0,
+        desc:`부채꼴로 에코를 발사하며 뒤로 이동 (${BALANCE.sherina.counter.damage})` },
     ],
   },
 
@@ -5768,21 +5820,37 @@ const SKILLS = {
       const B = BALANCE.kan.lmb;
       if (L.lmbCooldown > 0) return;
       if (!useStam(B.cost)) return;
-      const dist = Math.hypot(R.x - L.x, R.y - L.y);
       let hit = false;
-      if (dist < B.meleeRange + R.radius) {
-        const toR = Math.atan2(R.y - L.y, R.x - L.x);
-        const diff = Math.abs(((toR - angle) + Math.PI*3) % (Math.PI*2) - Math.PI);
-        if (diff < B.halfAngle) {
-          const gauge = L._kanGauge || 0;
+      const gauge = L._kanGauge || 0;
+      if (_trainingMode) {
+        // 훈련장: 봇 직접 체크
+        for (const _kb of _trainingBots) {
+          if (_kb.hidden||!_kb.isAlive) continue;
+          const _kd = Math.hypot(_kb.x-L.x, _kb.y-L.y);
+          if (_kd >= augMeleeRange(B.meleeRange)+_kb.radius) continue;
+          const _kto = Math.atan2(_kb.y-L.y, _kb.x-L.x);
+          const _kdiff = Math.abs(((_kto-angle)+Math.PI*3)%(Math.PI*2)-Math.PI);
+          if (_kdiff >= B.halfAngle) continue;
           const dmg = Math.round(B.baseDamage + B.gaugeDamage * (gauge / BALANCE.kan.gaugeMax));
-          hitCtx({x:L.x, y:L.y, angle, range:augMeleeRange(B.meleeRange), halfAngle:B.halfAngle}, dmg);
+          _applyBotDamage(_kb, applyDmgAugs(dmg));
+          addShake(2,6); playHitSfx();
           L._kanGauge = Math.min(BALANCE.kan.gaugeMax, gauge + B.gaugeGain);
-
           hit = true;
         }
+      } else {
+        const dist = Math.hypot(R.x - L.x, R.y - L.y);
+        if (dist < B.meleeRange + R.radius) {
+          const toR = Math.atan2(R.y - L.y, R.x - L.x);
+          const diff = Math.abs(((toR - angle) + Math.PI*3) % (Math.PI*2) - Math.PI);
+          if (diff < B.halfAngle) {
+            const dmg = Math.round(B.baseDamage + B.gaugeDamage * (gauge / BALANCE.kan.gaugeMax));
+            hitCtx({x:L.x, y:L.y, angle, range:augMeleeRange(B.meleeRange), halfAngle:B.halfAngle}, dmg);
+            L._kanGauge = Math.min(BALANCE.kan.gaugeMax, gauge + B.gaugeGain);
+            hit = true;
+          }
+        }
+        hitCtxSpirit({x:L.x, y:L.y, angle, range:augMeleeRange(B.meleeRange), halfAngle:B.halfAngle}, B.baseDamage);
       }
-      hitCtxSpirit({x:L.x, y:L.y, angle, range:augMeleeRange(B.meleeRange), halfAngle:B.halfAngle}, B.baseDamage);
       const col = hit ? '80,220,120' : '40,160,80';
       addFx({type:'kanSlash', x:L.x, y:L.y, angle, range:augMeleeRange(B.meleeRange), halfAngle:B.halfAngle, col, dur:10, maxDur:10});
       send({type:'fx', fx:{type:'kanSlash', x:L.x, y:L.y, angle, range:augMeleeRange(B.meleeRange), halfAngle:B.halfAngle, col, dur:10, maxDur:10}});
@@ -6581,6 +6649,7 @@ const SKILLS = {
           const _rd = Math.hypot(R.x-L.x, R.y-L.y);
           if (_rd <= B.ringOuter+R.radius && _rd >= _inner-R.radius) {
             hitCtxAll({x:L.x, y:L.y, range:B.ringOuter}, _dmg);
+            addShake(_empow ? 4 : 3, 10); playHitSfx();
           }
           // 소환수도 원주 체크
           for (const pm of peerMinions) {
@@ -6590,7 +6659,6 @@ const SKILLS = {
             }
           }
         }
-        addShake(_empow ? 4 : 3, 10); playHitSfx();
         addFx({type:'pelunaRing', x:L.x, y:L.y, inner:_inner, outer:B.ringOuter, dur:22, maxDur:22, empow:_empow, angle:angle, halfAngle:Math.PI});
         send({type:'fx', fx:{type:'pelunaRing', x:L.x, y:L.y, inner:_inner, outer:B.ringOuter, dur:22, maxDur:22, empow:_empow, angle:angle, halfAngle:Math.PI}});
         L.lmbCooldown = B.cd;
@@ -6648,6 +6716,98 @@ const SKILLS = {
         send({type:'fx', fx:{type:'pelunaPull', x:L.x, y:L.y, r:0, maxR:B.pullRange, dur:20, maxDur:20}});
         L.lastAttackTime = performance.now();
       }, BALANCE.counter.delay);
+    },
+  },
+
+  // ── 셰리나 비아 ─────────────────────────────────────────────
+  sherina: {
+    lmb(angle) {
+      const B = BALANCE.sherina.lmb;
+      if (L.lmbCooldown > 0) return;
+      if (!useStam(B.cost)) return;
+      const _id = uid();
+      const b = {
+        id:_id, x:L.x, y:L.y,
+        radius: B.radius, speed: B.speed,
+        dx: Math.cos(angle), dy: Math.sin(angle),
+        damage: B.damage, maxRange: B.range, traveled:0,
+        isSherinaEcho: true,
+        echoDur: B.echoDur, echoRadius: augBulletRadius(B.echoRadius),
+        echoDamage: B.echoDamage, echoTickInterval: B.echoTickInterval,
+        _startX: L.x, _startY: L.y,
+        _pathPoints: [{x:L.x, y:L.y}],
+      };
+      localBullets.push(b); send({type:'bullet', ...b, _pathPoints:undefined});
+      playShootSfx();
+      L.lmbCooldown = B.cd; L.lastAttackTime = performance.now();
+    },
+
+    rmb(angle) {
+      const B = BALANCE.sherina.rmb;
+      if (L.rmbCooldown > 0) return;
+      if (!useStam(B.cost)) return;
+      const paths = L._sherinaPaths || [];
+      // 각 경로에 잔향 확장 (echoes를 각 path segment 따라 재생성)
+      if (!L._sherinaEchoZones) L._sherinaEchoZones = [];
+      for (const path of paths) {
+        if (!path || path.length < 2) continue;
+        // 경로 시작-끝 하나의 확장 rect
+        const _pp = path[0], _pc = path[path.length-1];
+        const _pang = Math.atan2(_pc.y-_pp.y, _pc.x-_pp.x);
+        const _plen = Math.max(20, Math.hypot(_pc.x-_pp.x, _pc.y-_pp.y));
+        const _rmbNow = performance.now();
+        const _rmbDur = 3800;
+        L._sherinaEchoZones.push({
+          sx: _pp.x, sy: _pp.y, ex: _pc.x, ey: _pc.y,
+          cx: (_pp.x+_pc.x)/2, cy: (_pp.y+_pc.y)/2,
+          angle: _pang, fullLen: _plen,
+          halfW: BALANCE.sherina.lmb.echoRadius * 2.5,
+          damage: 20,
+          createdAt: _rmbNow,
+          totalDur: _rmbDur,
+          expiry: _rmbNow + _rmbDur,
+          tickInterval: 120,
+          isRmb: true,
+          _hitCd: new Map(),
+        });
+      }
+      addFx({type:'sherinaDoubling', x:L.x, y:L.y, paths, dur:20, maxDur:20});
+      send({type:'fx', fx:{type:'sherinaDoubling', x:L.x, y:L.y, dur:20, maxDur:20}});
+      L.rmbCooldown = B.cd; L.lastAttackTime = performance.now();
+    },
+
+    counter(angle) {
+      const B = BALANCE.sherina.counter;
+      if (!L.counterReady) return;
+      if (L.lmbCooldown > 0 || L.rmbCooldown > 0) return;
+      L.counterReady = false; L.lmbCooldown = B.cd; L.rmbCooldown = B.cd;
+      L.color = '#ffd700'; send({type:'colorChange', color:'#ffd700'});
+      addFx({type:'counterCharge', x:L.x, y:L.y, r:25, maxR:25, dur:B.predelay/FRAME_MS, maxDur:B.predelay/FRAME_MS});
+      const tok = ++L._counterToken;
+      L._attackPreview = { shapes: [{ type: 'sector', range: B.range, halfAngle: B.halfAngle }] };
+      setTimeout(() => {
+        L._attackPreview = null;
+        if (!gameOn || L._counterToken !== tok) return;
+        L.color = L.defaultColor; L._preFlashColor = null; send({type:'colorChange', color:L.defaultColor});
+        const fireAngle = getAngle();
+        if (_trainingMode) {
+          for (const _cb of _trainingBots) {
+            if (_cb.hidden||!_cb.isAlive) continue;
+            if (Math.hypot(_cb.x-L.x, _cb.y-L.y) > B.range+_cb.radius) continue;
+            const _cto = Math.atan2(_cb.y-L.y, _cb.x-L.x);
+            const _cdiff = Math.abs(((_cto-fireAngle)+Math.PI*3)%(Math.PI*2)-Math.PI);
+            if (_cdiff >= B.halfAngle) continue;
+            _applyBotDamage(_cb, applyDmgAugs(B.damage));
+            addShake(2,6); playHitSfx();
+          }
+        } else {
+          hitCtxAll({x:L.x, y:L.y, angle:fireAngle, range:B.range, halfAngle:B.halfAngle}, B.damage);
+        }
+        // 한방에 그려지는 FX (dur 짧게)
+        addFx({type:'sherinaSlash', x:L.x, y:L.y, angle:fireAngle, range:B.range, halfAngle:B.halfAngle, dur:14, maxDur:14});
+        send({type:'fx', fx:{type:'sherinaSlash', x:L.x, y:L.y, angle:fireAngle, range:B.range, halfAngle:B.halfAngle, dur:14, maxDur:14}});
+        L.lastAttackTime = performance.now();
+      }, B.predelay);
     },
   },
 
@@ -7174,7 +7334,7 @@ function moveBullets(dt=1) {
     const hitWall = bulletHitsWall(b) && !b.pierceWalls;
     const hitEnemy = Math.hypot(b.x-R.x, b.y-R.y)<b.radius+R.radius;
     // 훈련장: 모든 봇에 대해 충돌 체크 (hitEnemy 와 독립적으로)
-    if (_trainingMode && !b.isElinHeal && !b.isRocket && !b.isTauSickle && !b.isElinOrb && !b.isPelunaAnvil) {
+    if (_trainingMode && !b.isElinHeal && !b.isRocket && !b.isTauSickle && !b.isElinOrb && !b.isPelunaAnvil && !b.isSherinaEcho) {
       for (const _tbot of _trainingBots) {
         if (_tbot.hidden || !_tbot.isAlive) continue;
         if (Math.hypot(b.x - _tbot.x, b.y - _tbot.y) < b.radius + _tbot.radius) {
@@ -7414,6 +7574,53 @@ function moveBullets(dt=1) {
       }
       // 벽·적 관통 (hitWall / hitEnemy 무시)
 
+    } else if (b.isSherinaEcho) {
+      // 셰리나 에코: 탄환 직격 피해 + 종료 시 경로 전체를 하나의 rect 잔향으로
+      // 시작점 기록
+      // 훈련장 봇 직접 피해
+      let _echoHitBot = false;
+      if (_trainingMode) {
+        for (const _sb of _trainingBots) {
+          if (_sb.hidden||!_sb.isAlive) continue;
+          if (Math.hypot(b.x-_sb.x, b.y-_sb.y) < b.radius+_sb.radius) {
+            _applyBotDamage(_sb, applyDmgAugs(b.damage));
+            addShake(2,6); playHitSfx(); _echoHitBot = true; break;
+          }
+        }
+      }
+      if (hitWall || oob || rangeOut || hitEnemy || hitSpirit || _echoHitBot) {
+        if (hitEnemy) { hitRemote(b.damage); addShake(2,6); playHitSfx(); }
+        // 경로 전체 = 시작~현재 하나의 rect
+        const _sx = b._startX, _sy = b._startY, _ex = b.x, _ey = b.y;
+        const _ang = Math.atan2(_ey-_sy, _ex-_sx);
+        const _len = Math.max(b.radius*2, Math.hypot(_ex-_sx, _ey-_sy));
+        const _hw = b.echoRadius;
+        const _ecx = (_sx+_ex)/2, _ecy = (_sy+_ey)/2;
+        const _eDmg = b.echoDamage, _eDur = b.echoDur, _eTick = b.echoTickInterval;
+        // 0.5초 후 잔향 생성
+        setTimeout(() => {
+          if (!gameOn) return;
+          if (!L._sherinaEchoZones) L._sherinaEchoZones = [];
+          const _now = performance.now();
+          L._sherinaEchoZones.push({
+            // 시작-끝 원점 정보 (애니메이션용)
+            sx: _sx, sy: _sy, ex: _ex, ey: _ey,
+            cx: _ecx, cy: _ecy,
+            angle: _ang, fullLen: _len, halfW: _hw,
+            damage: _eDmg,
+            createdAt: _now,
+            totalDur: _eDur,
+            expiry: _now + _eDur,
+            tickInterval: _eTick,
+            _hitCd: new Map(),
+          });
+        }, 500);
+        // 경로 저장 (더블링용): 시작-끝만
+        if (!L._sherinaPaths) L._sherinaPaths = [];
+        L._sherinaPaths.unshift([{x:_sx,y:_sy},{x:_ex,y:_ey}]);
+        if (L._sherinaPaths.length > BALANCE.sherina.rmb.maxPaths) L._sherinaPaths.pop();
+        localBullets.splice(i, 1);
+      }
     } else {
       // 다즈빈 파동 구체: 관통 탄 — 틱 피해만, 충돌로 제거 안 함
       if (b.isDazWave) {
@@ -8519,6 +8726,22 @@ function draw() {
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1,_ar), 0, Math.PI*2);
       ctx.strokeStyle=`rgba(255,180,80,${a*(1-_at)*0.9})`; ctx.lineWidth=4; ctx.stroke();
 
+    } else if (f.type==='sherinaSlash') {
+      // 셰리나 비아 반격기 — 한방에 그려지는 부채꼴 (페이드아웃)
+      ctx.beginPath(); ctx.moveTo(f.x, f.y);
+      ctx.arc(f.x, f.y, f.range, f.angle-f.halfAngle, f.angle+f.halfAngle);
+      ctx.closePath();
+      ctx.fillStyle=`rgba(130,0,220,${a*0.28})`; ctx.fill();
+      ctx.strokeStyle=`rgba(180,80,255,${a*0.9})`; ctx.lineWidth=2; ctx.stroke();
+
+    } else if (f.type==='sherinaDoubling') {
+      // 더블링 — 방사형 파장 폭발
+      const _dlt = 1 - f.dur/f.maxDur;
+      ctx.beginPath(); ctx.arc(f.x, f.y, 30+_dlt*60, 0, Math.PI*2);
+      ctx.strokeStyle=`rgba(100,0,180,${a*(1-_dlt)})`; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(f.x, f.y, 10+_dlt*30, 0, Math.PI*2);
+      ctx.fillStyle=`rgba(80,0,150,${a*0.2*(1-_dlt)})`; ctx.fill();
+
     } else if (f.type==='yuiSlash') {
       // 유이 단검 — 파란 부채꼴 공격 범위 (오른쪽→왼쪽 스윕)
       const _t = 1 - f.dur/f.maxDur;
@@ -8996,6 +9219,18 @@ function draw() {
         const tx2=bullet.x-bullet.dx*18, ty2=bullet.y-bullet.dy*18;
         ctx.beginPath(); ctx.moveTo(bullet.x,bullet.y); ctx.lineTo(tx2,ty2);
         ctx.strokeStyle=`rgba(0,220,200,${a*0.7})`; ctx.lineWidth=3; ctx.stroke();
+      } else if (bullet.isSherinaEcho) {
+        // 셰리나 에코 — 보라 원형 탄환 + 꼬리
+        const _etl = 10 + bullet.speed;
+        const _etx = bullet.x - bullet.dx*_etl, _ety = bullet.y - bullet.dy*_etl;
+        const _egd = ctx.createLinearGradient(bullet.x, bullet.y, _etx, _ety);
+        _egd.addColorStop(0, `rgba(140,0,255,${a})`);
+        _egd.addColorStop(1, `rgba(40,0,80,0)`);
+        ctx.beginPath(); ctx.moveTo(bullet.x, bullet.y); ctx.lineTo(_etx, _ety);
+        ctx.strokeStyle=_egd; ctx.lineWidth=3; ctx.stroke();
+        ctx.beginPath(); ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI*2);
+        ctx.fillStyle=`rgba(160,60,255,${a})`; ctx.fill();
+        ctx.strokeStyle=`rgba(200,150,255,${a*0.6})`; ctx.lineWidth=1.5; ctx.stroke();
       } else if (bullet.isPelunaAnvil) {
         // 모루 — 회색 사각형 + 회전
         ctx.save();
@@ -9123,6 +9358,57 @@ function draw() {
       }
     });
   };
+
+  // 셰리나 잔향 존 렌더링 (직사각형 hitscn 스타일)
+  if (L.charDef?.id === 'sherina' && L._sherinaEchoZones) {
+    for (const _ez of L._sherinaEchoZones) {
+      if (!_ez.angle) continue;
+      const _now4 = performance.now();
+      if (!_ez.createdAt) continue;
+      const _elapsed = _now4 - _ez.createdAt;
+      const _t = Math.min(1, _elapsed / _ez.totalDur);
+      const GROW=0.35, HOLD=0.30, FADE_START=0.65;
+      const _isRmb = !!_ez.isRmb;
+      // 우클릭: 바로 풀길이 페이드인, 일반: 자라남
+      let _curLen, _offset;
+      if (_isRmb) {
+        // 바로 풀길이, 후반 사라짐
+        _curLen = _ez.fullLen;
+        _offset = 0;
+      } else if (_t < GROW) {
+        // 자라남: 시작점에서 끝점으로
+        _curLen = _ez.fullLen * (_t / GROW);
+        _offset = 0;
+      } else if (_t < GROW + HOLD) {
+        // 유지
+        _curLen = _ez.fullLen;
+        _offset = 0;
+      } else {
+        // 사라짐: 끝점부터 줄어듦 (시작점 쪽 남음)
+        const _shrink = (_t - GROW - HOLD) / (1 - GROW - HOLD);
+        _curLen = _ez.fullLen * (1 - _shrink);
+        _offset = _ez.fullLen * _shrink; // 시작 offset 이동
+      }
+      _curLen = Math.max(4, _curLen);
+      // alpha
+      const _ea = _isRmb
+        ? (_t < 0.1 ? _t/0.1 : _t > FADE_START ? (1-(_t-FADE_START)/(1-FADE_START)) : 1) * 0.75
+        : (_t > FADE_START ? (1-(_t-FADE_START)/(1-FADE_START)) : 1) * 0.75;
+      const _startX = _ez.sx ?? _ez.cx, _startY = _ez.sy ?? _ez.cy;
+      ctx.save();
+      ctx.globalAlpha = _ea;
+      ctx.translate(_startX, _startY);
+      ctx.rotate(_ez.angle);
+      const _hw2 = _ez.halfW ?? 12;
+      ctx.fillStyle = 'rgba(120,0,200,0.2)';
+      ctx.fillRect(_offset, -_hw2, _curLen, _hw2*2);
+      ctx.strokeStyle = 'rgba(180,80,255,0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(_offset, -_hw2, _curLen, _hw2*2);
+      ctx.restore();
+    }
+  }
+
   // 펠루나 모루 지대 렌더링
   if (L._pelunaAnvils) {
     const _anow = performance.now();
@@ -10463,7 +10749,7 @@ function resetL() {
   L._prillZoneToken=0;
   L._dazPortals=[]; // 다즈빈 포탈 초기화
   L._yuiHistory=[]; L._yuiLastSample=0; // 유이 히스토리 초기화
-  L._pelunaAnvils=[]; L._pelunaEmpowerExpiry=0; L._pelunaPreswing=false; L._pelunaToken=0
+  L._pelunaAnvils=[]; L._sherinaPaths=[]; L._sherinaEchoZones=[]; L._sherinaGlobalHitCd=new Map(); L._pelunaEmpowerExpiry=0; L._pelunaPreswing=false; L._pelunaToken=0
   R._pelunaAnvil=null;
     if (_dodgeInterval) { clearInterval(_dodgeInterval); _dodgeInterval=null; }
 }
@@ -11105,6 +11391,63 @@ function loop() {
            width:BL.width, range:BL.range, dur:2, maxDur:2});
     send({type:'fx', fx:{type:'erapabiMegaLaser', x:L.x, y:L.y, angle:L._erapabiLaserAngle,
            width:BL.width, range:BL.range, dur:2, maxDur:2}});
+  }
+
+  // 셰리나 잔향 존 틱 피해 (직사각형 판정 — 전역 쿨다운으로 중복 방지)
+  if (gameOn && L.charDef?.id === 'sherina' && L._sherinaEchoZones?.length > 0) {
+    const _now3 = performance.now();
+    if (!L._sherinaGlobalHitCd) L._sherinaGlobalHitCd = new Map();
+    const _getEchoBounds = (_z) => {
+      if (!_z.createdAt) return { offset: 0, len: _z.fullLen ?? _z.len ?? 1 };
+      const _el = Math.min(1, (performance.now()-_z.createdAt)/_z.totalDur);
+      const GROW=0.35, HOLD=0.30;
+      const _full = _z.fullLen ?? 1;
+      if (_z.isRmb) return { offset: 0, len: _full };
+      if (_el < GROW) return { offset: 0, len: _full * (_el/GROW) };
+      if (_el < GROW+HOLD) return { offset: 0, len: _full };
+      const _sh = (_el-GROW-HOLD)/(1-GROW-HOLD);
+      return { offset: _full*_sh, len: _full*(1-_sh) };
+    };
+    const _inRect = (_z, tx, ty, tr) => {
+      const _cos = Math.cos(_z.angle), _sin = Math.sin(_z.angle);
+      const _sx2 = _z.sx ?? _z.cx ?? _z.x, _sy2 = _z.sy ?? _z.cy ?? _z.y;
+      const { offset: _off, len: _len } = _getEchoBounds(_z);
+      const _hw = _z.halfW ?? _z.r ?? 12;
+      // 실제 중심점 계산 (offset 적용)
+      const _ocx = _sx2 + Math.cos(_z.angle)*(_off + _len/2);
+      const _ocy = _sy2 + Math.sin(_z.angle)*(_off + _len/2);
+      const _dx = tx - _ocx, _dy = ty - _ocy;
+      const _para = Math.abs(_dx*_cos + _dy*_sin);
+      const _perp = Math.abs(-_dx*_sin + _dy*_cos);
+      return _para < _len/2 + tr && _perp < _hw + tr;
+    };
+    // 만료 존 제거
+    for (let _zi = L._sherinaEchoZones.length-1; _zi >= 0; _zi--) {
+      if (_now3 > L._sherinaEchoZones[_zi].expiry) L._sherinaEchoZones.splice(_zi, 1);
+    }
+    const _interval = BALANCE.sherina.lmb.echoTickInterval;
+    if (_trainingMode) {
+      for (const _zb of _trainingBots) {
+        if (_zb.hidden||!_zb.isAlive) continue;
+        const _inAny = L._sherinaEchoZones.some(_z => _inRect(_z, _zb.x, _zb.y, _zb.radius));
+        if (_inAny) {
+          const _cd = L._sherinaGlobalHitCd.get(_zb.id)||0;
+          if (_now3 > _cd) {
+            L._sherinaGlobalHitCd.set(_zb.id, _now3+_interval);
+            _applyBotDamage(_zb, applyDmgAugs(L._sherinaEchoZones.find(_z=>_inRect(_z,_zb.x,_zb.y,_zb.radius))?.damage || 0));
+          }
+        }
+      }
+    } else {
+      const _inAnyR = L._sherinaEchoZones.some(_z => _inRect(_z, R.x, R.y, R.radius));
+      if (_inAnyR) {
+        const _cd = L._sherinaGlobalHitCd.get('R')||0;
+        if (_now3 > _cd) {
+          L._sherinaGlobalHitCd.set('R', _now3+_interval);
+          hitRemote(L._sherinaEchoZones.find(_z=>_inRect(_z,R.x,R.y,R.radius))?.damage || 0);
+        }
+      }
+    }
   }
 
   // 파비 보호막 만료 체크
