@@ -141,7 +141,7 @@ input[type=text]:focus{border-color:#4af;}
 .between-panel{background:#0d1520;border:1px solid #1a2a3a;border-radius:6px;padding:20px 24px;min-width:240px;}
 .between-title{font-size:12px;letter-spacing:3px;color:#4af;margin-bottom:14px;text-transform:uppercase;}
 .char-mini-grid{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
-.char-mini-card{width:80px;padding:10px 6px;border:1px solid #2a4a6a;border-radius:4px;
+.char-mini-card{width:95px;padding:10px 6px;border:1px solid #2a4a6a;border-radius:4px;
   cursor:pointer;text-align:center;font-size:11px;transition:all .15s;background:#0a0a12;}
 .char-mini-card:hover{border-color:#4af;background:#111820;}
 .char-mini-card.sel{border-color:#fa0;background:#12100a;}
@@ -9585,7 +9585,7 @@ function draw() {
       // 시각 위치를 R.x/R.y에 임시 적용 (drawPlayer용)
       const _rRealX=R.x, _rRealY=R.y;
       if (R._vx !== undefined) { R.x=R._vx; R.y=R._vy; }
-      drawPlayer(R,'상대');
+      drawPlayer(R, R.charDef?.name ?? '상대');
       R.x=_rRealX; R.y=_rRealY;
       if (_rInSmoke) ctx.restore();
     }
@@ -10761,7 +10761,7 @@ function startGame() {
 
   resetL();
   const rc=CHARACTERS[peerCharId];
-  R.color=rc.color; R.defaultColor=rc.color;
+  R.color=rc.color; R.defaultColor=rc.color; R.charDef=rc;
   R.maxHealth=rc.maxHealth; R.health=rc.maxHealth;
   R.radius=rc.radius??20; R.stamina=STAM_MAX; R.dodging=false; R.counterReady=false;
   R.burrowing=false; R.stunEnd=0; R.bindEnd=0; R.burnEnd=0;
