@@ -209,7 +209,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.10.0</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.10.1</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -1416,7 +1416,7 @@ const BALANCE = {
     },
     rmb: {
       cost:       80,
-      cd:         5000,
+      cd:         700,
       maxPaths:   3,       // 기억하는 최대 경로 수
     },
     counter: {
@@ -1425,6 +1425,8 @@ const BALANCE = {
       range:      180,
       halfAngle:  Math.PI * 0.15,
       predelay:   300,
+      dashDist:   260,
+      dashDur:    160,
       cd:         300,
     },
   },
@@ -3865,9 +3867,10 @@ function drawAttackPreview(preview) {
       ctx.globalAlpha = 0.55; ctx.stroke();
 
     } else if (sh.type === 'rect') {
+      const _ra = angle + (sh._angleOffset ?? sh.angleOffset ?? 0);
       ctx.save();
       ctx.translate(L.x, L.y);
-      ctx.rotate(angle);
+      ctx.rotate(_ra);
       const hw = sh.width;
       ctx.globalAlpha = 0.14; ctx.fillRect(0, -hw, sh.len, hw * 2);
       ctx.globalAlpha = 0.55; ctx.strokeRect(0, -hw, sh.len, hw * 2);
@@ -6757,9 +6760,10 @@ const SKILLS = {
         const _plen = Math.max(20, Math.hypot(_pc.x-_pp.x, _pc.y-_pp.y));
         const _rmbNow = performance.now();
         const _rmbDur = 3800;
+        const _rmbCx = (_pp.x+_pc.x)/2, _rmbCy = (_pp.y+_pc.y)/2;
         L._sherinaEchoZones.push({
           sx: _pp.x, sy: _pp.y, ex: _pc.x, ey: _pc.y,
-          cx: (_pp.x+_pc.x)/2, cy: (_pp.y+_pc.y)/2,
+          cx: _rmbCx, cy: _rmbCy,
           angle: _pang, fullLen: _plen,
           halfW: BALANCE.sherina.lmb.echoRadius * 2.5,
           damage: 20,
@@ -6770,6 +6774,10 @@ const SKILLS = {
           isRmb: true,
           _hitCd: new Map(),
         });
+        send({type:'fx', fx:{type:'sherinaEchoZone',
+          sx:_pp.x, sy:_pp.y, cx:_rmbCx, cy:_rmbCy, angle:_pang, fullLen:_plen,
+          halfW:BALANCE.sherina.lmb.echoRadius*2.5, isRmb:true,
+          dur:Math.round(_rmbDur/FRAME_MS), maxDur:Math.round(_rmbDur/FRAME_MS)}});
       }
       addFx({type:'sherinaDoubling', x:L.x, y:L.y, paths, dur:20, maxDur:20});
       send({type:'fx', fx:{type:'sherinaDoubling', x:L.x, y:L.y, dur:20, maxDur:20}});
@@ -6806,6 +6814,22 @@ const SKILLS = {
         // 한방에 그려지는 FX (dur 짧게)
         addFx({type:'sherinaSlash', x:L.x, y:L.y, angle:fireAngle, range:B.range, halfAngle:B.halfAngle, dur:14, maxDur:14});
         send({type:'fx', fx:{type:'sherinaSlash', x:L.x, y:L.y, angle:fireAngle, range:B.range, halfAngle:B.halfAngle, dur:14, maxDur:14}});
+        // 뒤로 대시
+        const _bAng = fireAngle + Math.PI;
+        const _dsx = L.x, _dsy = L.y;
+        const _dtx = Math.max(L.radius, Math.min(WORLD_W-L.radius, L.x + Math.cos(_bAng)*B.dashDist));
+        const _dty = Math.max(L.radius, Math.min(WORLD_H-L.radius, L.y + Math.sin(_bAng)*B.dashDist));
+        addFx({type:'sherinaDash', x:_dsx, y:_dsy, tx:_dtx, ty:_dty, dur:22, maxDur:22});
+        send({type:'fx', fx:{type:'sherinaDash', x:_dsx, y:_dsy, tx:_dtx, ty:_dty, dur:22, maxDur:22}});
+        const _dst = performance.now();
+        const _dint = setInterval(() => {
+          if (!gameOn) { clearInterval(_dint); return; }
+          const _dt = Math.min(1, (performance.now()-_dst)/B.dashDur);
+          L.x = _dsx + (_dtx-_dsx)*(1-(1-_dt)*(1-_dt));
+          L.y = _dsy + (_dty-_dsy)*(1-(1-_dt)*(1-_dt));
+          resolveWall(L);
+          if (_dt >= 1) clearInterval(_dint);
+        }, FRAME_MS);
         L.lastAttackTime = performance.now();
       }, B.predelay);
     },
@@ -7603,7 +7627,6 @@ function moveBullets(dt=1) {
           if (!L._sherinaEchoZones) L._sherinaEchoZones = [];
           const _now = performance.now();
           L._sherinaEchoZones.push({
-            // 시작-끝 원점 정보 (애니메이션용)
             sx: _sx, sy: _sy, ex: _ex, ey: _ey,
             cx: _ecx, cy: _ecy,
             angle: _ang, fullLen: _len, halfW: _hw,
@@ -7614,6 +7637,10 @@ function moveBullets(dt=1) {
             tickInterval: _eTick,
             _hitCd: new Map(),
           });
+          // 상대 화면 동기화
+          send({type:'fx', fx:{type:'sherinaEchoZone',
+            sx:_sx, sy:_sy, cx:_ecx, cy:_ecy, angle:_ang, fullLen:_len, halfW:_hw,
+            dur:Math.round(_eDur/FRAME_MS), maxDur:Math.round(_eDur/FRAME_MS)}});
         }, 500);
         // 경로 저장 (더블링용): 시작-끝만
         if (!L._sherinaPaths) L._sherinaPaths = [];
@@ -8733,6 +8760,44 @@ function draw() {
       ctx.closePath();
       ctx.fillStyle=`rgba(130,0,220,${a*0.28})`; ctx.fill();
       ctx.strokeStyle=`rgba(180,80,255,${a*0.9})`; ctx.lineWidth=2; ctx.stroke();
+
+    } else if (f.type==='sherinaDash') {
+      // 셰리나 백스텝 잔상
+      const _dx=f.tx-f.x, _dy=f.ty-f.y;
+      const _len=Math.hypot(_dx,_dy)||1;
+      const _nx=-_dy/_len, _ny=_dx/_len;
+      const _t=1-f.dur/f.maxDur;
+      // 중심 글로우 라인
+      ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.tx, f.ty);
+      ctx.strokeStyle=`rgba(200,130,255,${a*0.7})`; ctx.lineWidth=4; ctx.lineCap='round'; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.tx, f.ty);
+      ctx.strokeStyle=`rgba(255,255,255,${a*0.5})`; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.lineCap='butt';
+      // 시작 지점 팽창 링
+      ctx.beginPath(); ctx.arc(f.x, f.y, 6+_t*20, 0, Math.PI*2);
+      ctx.strokeStyle=`rgba(180,80,255,${a*(1-_t)})`; ctx.lineWidth=2; ctx.stroke();
+
+    } else if (f.type==='sherinaEchoZone') {
+      // 셰리나 잔향 (상대 화면에도 표시)
+      if (!f.angle) return;
+      const _t2 = 1 - f.dur/f.maxDur;
+      const GROW=0.35, HOLD=0.30, FADE_START=0.65;
+      let _curLen2;
+      if (_t2 < GROW) _curLen2 = f.fullLen * (_t2/GROW);
+      else if (_t2 < GROW+HOLD) _curLen2 = f.fullLen;
+      else { const _sh2=(_t2-GROW-HOLD)/(1-GROW-HOLD); _curLen2=f.fullLen*(1-_sh2); }
+      _curLen2 = Math.max(4, _curLen2);
+      const _ea2 = _t2 > FADE_START ? (1-(_t2-FADE_START)/(1-FADE_START))*0.75 : 0.75;
+      const _hw2 = f.halfW ?? 12;
+      ctx.save();
+      ctx.globalAlpha = _ea2;
+      const _fsx = f.sx ?? f.cx, _fsy = f.sy ?? f.cy;
+      ctx.translate(_fsx, _fsy);
+      ctx.rotate(f.angle);
+      ctx.fillStyle='rgba(120,0,200,0.2)'; ctx.fillRect(0,-_hw2,_curLen2,_hw2*2);
+      ctx.strokeStyle='rgba(180,80,255,0.9)'; ctx.lineWidth=1.5;
+      ctx.strokeRect(0,-_hw2,_curLen2,_hw2*2);
+      ctx.restore();
 
     } else if (f.type==='sherinaDoubling') {
       // 더블링 — 방사형 파장 폭발
@@ -11535,6 +11600,7 @@ function loop() {
   }
 
 
+
   // ── 펠루나 강화지대 렌더링 (draw 시점) ────────────────
   if (L._pelunaAnvils && L._pelunaAnvils.length > 0) {
     const _pnow = performance.now();
@@ -11620,7 +11686,7 @@ function loop() {
 
   // peerMinions 목표 위치는 loop에서도 같은 비율로 유지 (충돌/판정용)
   const lf=1-Math.pow(1-0.22, dt);
-  R.x+=(R.tx-R.x)*lf; R.y+=(R.ty-R.y)*lf; // 판정용 R 위치 (draw와 별개)
+  R.x+=(R.tx-R.x)*lf; R.y+=(R.ty-R.y)*lf;
   // peerMinions 위치 보간 (끊김 방지)
   for (const pm of peerMinions) {
     if (pm.tx !== undefined) {
