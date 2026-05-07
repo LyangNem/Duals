@@ -12024,9 +12024,10 @@ function loop() {
     let old = document.getElementById('dev-panel');
     if (old) { old.remove(); return; }
 
-    // 상대에게 경고
-    if (gameOn && typeof send === 'function') {
+    // 상대에게 경고 (최초 열릴 때만)
+    if (gameOn && typeof send === 'function' && !window._devPanelWasOpen) {
       send({type:'devAlert'});
+      window._devPanelWasOpen = true;
     }
 
     const panel = document.createElement('div');
