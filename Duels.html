@@ -212,7 +212,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.11.0</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 1.11.4</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -1877,7 +1877,7 @@ const CHARACTERS = {
   sherina: {
     id:        'sherina',
     name:      '셰리나 비아',
-    color:     '#6633cc',
+    color:     '#3d1a7a',
     maxHealth: BALANCE.sherina.hp,
     speed:     BALANCE.sherina.speed,
     radius:    BALANCE.sherina.radius,
@@ -8926,7 +8926,8 @@ function draw() {
         _curLen2 = f.fullLen * (1 - _sh2); _offset2 = f.fullLen * _sh2;
       }
       _curLen2 = Math.max(4, _curLen2);
-      const _ea2 = (_t2 > FADE_START_FX ? (1 - (_t2 - FADE_START_FX) / (1 - FADE_START_FX)) : 1) * 0.75;
+      const _fadeIn2 = _t2 < 0.1 ? _t2 / 0.1 : 1;
+      const _ea2 = (_t2 > FADE_START_FX ? (1 - (_t2 - FADE_START_FX) / (1 - FADE_START_FX)) : 1) * 0.75 * _fadeIn2;
       const _hw2 = f.halfW ?? 12;
       ctx.save();
       ctx.globalAlpha = _ea2;
@@ -9582,7 +9583,8 @@ function draw() {
         _offset = _ez.fullLen * _shrink;
       }
       _curLen = Math.max(4, _curLen);
-      const _ea = (_t > FADE_START ? (1 - (_t - FADE_START) / (1 - FADE_START)) : 1) * 0.75;
+      const _fadeIn = _t < 0.1 ? _t / 0.1 : 1;
+      const _ea = (_t > FADE_START ? (1 - (_t - FADE_START) / (1 - FADE_START)) : 1) * 0.75 * _fadeIn;
       const _startX = _ez.sx ?? _ez.cx, _startY = _ez.sy ?? _ez.cy;
       ctx.save();
       ctx.globalAlpha = _ea;
