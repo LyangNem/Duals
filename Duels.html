@@ -212,7 +212,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.25.2</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.25.3</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -483,7 +483,7 @@ const BALANCE = {
       hammerSpeed:   16,       // 망치 이동 속도 (px/frame)
       hammerRange:   900,      // 최대 사거리
       hammerRadius:  26,       // 망치 크기 (충돌 반경)
-      hammerDamage:  25,       // 망치 피해량
+      hammerDamage:  20,       // 망치 피해량
       window:        1500,     // 망치가 자동 회수되는 시간 (ms)
       // LMB 돌진
       lmbDashExtra:  160,      // 망치 위치보다 더 돌진하는 거리
@@ -793,7 +793,7 @@ const BALANCE = {
     rmb: {
       cost:          50,
       range:         350,         // 가위 도달 거리
-      pullDist:      90,         // 끌어당기는 거리 (캐릭터 넘어서 안 끌어옴)
+      pullDist:      126,        // 끌어당기는 거리 (캐릭터 넘어서 안 끌어옴)
       dur:           280,         // 끌어당기기 지속 ms
       knockbackPower: 0,
       cd:            900,
@@ -824,7 +824,7 @@ const BALANCE = {
       cd:          320,
     },
     shieldDash: {
-      cost:           30,
+      cost:           20,
       range:          320,
       width:          50,
       damage:         35,
@@ -1229,17 +1229,17 @@ const BALANCE = {
       cost:           20,
       swingRange:     165,
       swingHalfAngle: Math.PI * 0.52,
-      swingDamage:    10,
+      swingDamage:    15,
       thrustLength:   210,
       thrustWidth:    52,
-      thrustDamage:   20,
+      thrustDamage:   25,
       thrustKbPower:  340,
-      comboWindow:    800,
+      comboWindow:    1000,
       cd:             320,
     },
 
     rmb: {
-      cost:            110,
+      cost:            80,
       predelay:        500,
       hitInterval:     500,
       hitCount:        7,
@@ -1440,15 +1440,15 @@ const BALANCE = {
     speed:  4.5,
     radius: 20,
     lmb: {
-      cost:        25,
-      damage:      20,
+      cost:        30,
+      damage:      25,
       range:       180,
       halfAngle:   1.15,
       cd:          600,
     },
     rmb: {
-      activationCost: 50,  // 발동 즉시 소모
-      staminaDrain: 20,
+      activationCost: 35,  // 발동 즉시 소모
+      staminaDrain: 10,
       maxDur:      5000,
       speedBoost:  1.4,
       detectRange: 80,
@@ -2156,7 +2156,7 @@ const AUGMENTS = [
   { id:'stun_shot',   name:'스턴샷',       emoji:'🌀', rarity:'hero',   desc:'4초마다 다음 평타가 적을 기절시킴' },
   { id:'speed_shot',  name:'스피드 샷',    emoji:'🚀', rarity:'common', desc:'탄속 +30%' },
   { id:'fortress',    name:'절대방어',     emoji:'🏰', rarity:'hero',   desc:'5초간 피해를 받지 않으면 다음 한 번의 피해를 80% 감소' },
-  { id:'counter_def', name:'공격방어',     emoji:'🛡', rarity:'rare',   desc:'반격기 사용 직후 2초간 받는 피해 20% 감소' },
+  { id:'counter_def', name:'공격방어',     emoji:'🛡', rarity:'rare',   desc:'피해를 준 이후 2초간 받는 피해 20% 감소' },
   { id:'big_weapon',  name:'더 큰 무기',   emoji:'⚔️', rarity:'rare',   desc:'근접 무기 공격범위 +20%' },
   { id:'healing',     name:'힐링',         emoji:'💚', rarity:'common', desc:'매 초마다 체력 2 회복' },
   { id:'light_step',  name:'가벼운 걸음',  emoji:'🌬', rarity:'common', desc:'회피 거리 +40%' },
@@ -4115,8 +4115,8 @@ function applyStunShot() {
   // 평타(LMB)에서만 발동 — 동기 플래그 OR 최근 3초 이내 LMB 발사 (투사체 딜레이 대응)
   if (getAugCount('stun_shot') <= 0) return;
   if (!L._stunShotReady) return;
-  const _lmbRecent = L._lmbAttacking || (performance.now() - (L._lmbFireTime||0) < 3000);
-  if (!_lmbRecent) return;
+  // 평타 동기 플래그만 체크 — 시간 기반 조건 제거 (rmb 등에서 오발 방지)
+  if (!L._lmbAttacking) return;
   L._stunShotReady = false;
   const _stunDur = 300 * getAugCount('stun_shot'); // 중첩당 0.3초
   stunRemote(_stunDur);
@@ -7063,7 +7063,7 @@ const SKILLS = {
       // 6발 날아가는 투사체 — 벽 관통 불가, 빔 라인 외형, 피해 1회만
       const _hatsBurstId = uid();
       const _hatsCount = 6;
-      const _hatsSpd = augBulletSpeed(14); // 사거리 무관 고정 탄속
+      const _hatsSpd = augBulletSpeed(22); // 사거리 무관 고정 탄속 (버프)
       for (let _hi = 0; _hi < _hatsCount; _hi++) {
         const _hSpread = halfAngle * 2 * (_hi / (_hatsCount - 1)) - halfAngle;
         const _hAngle = angle + _hSpread;
@@ -12204,7 +12204,30 @@ function loop() {
       const _rt = Math.min(1, (now - _h.returnStart) / 350);
       _h.x = _h.returnSX + (L.x - _h.returnSX) * (1-(1-_rt)*(1-_rt));
       _h.y = _h.returnSY + (L.y - _h.returnSY) * (1-(1-_rt)*(1-_rt));
+      // 귀환 중 적 피격 판정 (매 프레임)
+      if (!_h._returnHit) {
+        const _BRuvu = BALANCE.ruvu.lmb;
+        const _hitR = (_BRuvu.hitRadius || 25);
+        if (!_trainingMode) {
+          if (Math.hypot(R.x-_h.x, R.y-_h.y) < _hitR + R.radius) {
+            _h._returnHit = true;
+            hitRemote(BALANCE.ruvu.rmb.hammerDamage);
+            addFx({type:'counterCharge', x:_h.x, y:_h.y, r:_hitR, maxR:_hitR, dur:8, maxDur:8});
+          }
+        } else {
+          for (const _rtb of _trainingBots) {
+            if (!_rtb.isAlive||_rtb.hidden) continue;
+            if (Math.hypot(_rtb.x-_h.x, _rtb.y-_h.y) < _hitR + _rtb.radius) {
+              _h._returnHit = true;
+              _applyBotDamage(_rtb, BALANCE.ruvu.rmb.hammerDamage);
+              addFx({type:'counterCharge', x:_h.x, y:_h.y, r:_hitR, maxR:_hitR, dur:8, maxDur:8});
+              break;
+            }
+          }
+        }
+      }
       if (_rt >= 1) {
+        _h._returnHit = false;
         if (!L._ruvuHammer._manualRecall) {
           const _BR2 = BALANCE.ruvu.rmb;
           const _sx = L._ruvuHammer.returnSX, _sy = L._ruvuHammer.returnSY;
@@ -12290,14 +12313,13 @@ function loop() {
 // ══════════════════════════════════════════════════════════════
 // 개발자 도구 (roqkfwkahem 입력 시 열림)
 // ══════════════════════════════════════════════════════════════
-(function() {
-  // roqkfwkahem 키 시퀀스 감지
-  const _seq = 'roqkfwkahem';
-  let _buf = '';
-  document.addEventListener('keydown', (e) => {
-    _buf = (_buf + e.key).slice(-_seq.length);
-    if (_buf === _seq) { _buf = ''; openDevPanel(); }
-  });
+// roqkfwkahem 키 시퀀스 감지
+const _devSeq = 'roqkfwkahem';
+let _devBuf = '';
+document.addEventListener('keydown', (e) => {
+  _devBuf = (_devBuf + e.key).slice(-_devSeq.length);
+  if (_devBuf === _devSeq) { _devBuf = ''; openDevPanel(); }
+});
 
   function buildAugCard(aug, onClose) {
     const cnt = getAugCount(aug.id);
@@ -12322,6 +12344,7 @@ function loop() {
   }
   window._buildAugCard = buildAugCard; // 훈련장 패널용 노출
 
+  window.openDevPanel = openDevPanel;
   function openDevPanel() {
     let old = document.getElementById('dev-panel');
     if (old) { old.remove(); return; }
@@ -12394,7 +12417,6 @@ function loop() {
     document.body.appendChild(panel);
   }
   window.openInGameAugPanel = openDevPanel; // 하위 호환
-})();
 
 
 </script>
