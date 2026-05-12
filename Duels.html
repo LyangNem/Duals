@@ -2001,7 +2001,7 @@ const CHARACTERS = {
       { key:'LMB', name:'마법탄', cost:BALANCE.runef.lmb.cost,
         desc:`최대 2회 연사 가능. 이 경우 다음 마법탄의 피해 증가. (${BALANCE.runef.lmb.damage}/${BALANCE.runef.lmb.damage2})` },
       { key:'RMB', name:'속성마법', cost:BALANCE.runef.rmb.cost,
-desc:`우클릭 : 화염구 폭발 (${BALANCE.runef.rmb.fireExpDamage}) / 우클릭+좌클릭 : 빙결 (${BALANCE.runef.rmb.iceDamage}) / 우클릭+우클릭 : 낙뢰 3타 (타당 ${BALANCE.runef.rmb.lightningDamage})` },
+desc:`우클릭 : 화염구 폭발 (${BALANCE.runef.rmb.fireExpDamage}) / 우클릭+좌클릭 : 빙결 (${BALANCE.runef.rmb.iceDamage}) / 우클릭+우클릭 : 낙뢰 3타 (${BALANCE.runef.rmb.lightningDamage}×3)` },
       { key:'L-Shift', name:'바람마법', cost:0,
         desc:`전방으로 토네이도 생성. 적을 사거리 끝까지 밀어냄 (${BALANCE.runef.counter.damage})` },
     ],
@@ -7472,7 +7472,7 @@ const SKILLS = {
       if (!L.counterReady) return;
       L.counterReady = false; L.lmbCooldown = B.cd; L.rmbCooldown = B.cd;
       L.color = '#ffd700'; send({type:'colorChange', color:'#ffd700'});
-      L._attackPreview = { shapes:[{type:'line', range:B.range, width:B.width*2}] };
+      L._attackPreview = { shapes:[{type:'line', range:B.range, width:augBulletRadius(B.width)*2}] };
       const _tok = ++L._counterToken;
       setTimeout(() => {
         L._attackPreview = null;
@@ -7484,6 +7484,7 @@ const SKILLS = {
         // 2단계: 적중 후 적의 현재 위치에서 방향대로 남은 거리만큼 밀기
         const _bAngle = angle;
         const _bDx = Math.cos(_bAngle), _bDy = Math.sin(_bAngle);
+        const _windWidth = augBulletRadius(B.width); // 거대총알 증강 적용
         let _wDist = 0, _wHit = false, _wBot = null;
         const _wSpd = 10;
         const _wInt = setInterval(() => {
@@ -7493,12 +7494,12 @@ const SKILLS = {
           const _wx = L.x + _bDx*_wDist, _wy = L.y + _bDy*_wDist;
           // 벽(맵 경계 + 내부 벽) 도달 시 중단
           if (_wx < 0||_wx > WORLD_W||_wy < 0||_wy > WORLD_H) { clearInterval(_wInt); return; }
-          if (bulletHitsWall({x:_wx, y:_wy, radius:B.width})) { clearInterval(_wInt); return; }
-          addFx({type:'runefTornado', x:_wx, y:_wy, width:B.width, dur:8, maxDur:8});
-          send({type:'fx', fx:{type:'runefTornado', x:_wx, y:_wy, width:B.width, dur:8, maxDur:8}});
+          if (bulletHitsWall({x:_wx, y:_wy, radius:_windWidth})) { clearInterval(_wInt); return; }
+          addFx({type:'runefTornado', x:_wx, y:_wy, width:_windWidth, dur:8, maxDur:8});
+          send({type:'fx', fx:{type:'runefTornado', x:_wx, y:_wy, width:_windWidth, dur:8, maxDur:8}});
           if (!_trainingMode) {
             // 적 탐색 (미적중 시)
-            if (!_wHit && Math.hypot(R.x-_wx, R.y-_wy) < B.width+R.radius) {
+            if (!_wHit && Math.hypot(R.x-_wx, R.y-_wy) < _windWidth+R.radius) {
               _wHit = true; hitRemote(B.damage);
             }
             // 적중 후: FX 위치로 적을 밀어냄
