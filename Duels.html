@@ -212,7 +212,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.25.5</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.26.0</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -1464,6 +1464,51 @@ const BALANCE = {
       cd:          300,
     },
   },
+
+  // ── 루네프 ──────────────────────────────────────────────────
+  runef: {
+    hp:     90,
+    speed:  4.0,
+    radius: 20,
+    lmb: {
+      cost:       20,
+      damage:     10,
+      damage2:    15,
+      radius:     10,
+      speed:      17,
+      range:      480,
+      cd1:        200,
+      cd2:        500,
+    },
+    rmb: {
+      cost:       50,
+      window:     400,
+      fireDamage:     20,
+      fireRadius:     14,
+      fireSpeed:      18,
+      fireRange:      700,
+      fireExpRadius:  120,
+      fireExpDamage:  20,
+      iceDamage:      15,
+      iceRange:       180,
+      iceHalfAngle:   0.9,
+      iceFreezeDur:   500,
+      lightningDamage: 10,
+      lightningRange:  400,
+      lightningRadius: 90,
+      lightningCount:  3,
+      lightningInterval: 120,
+      cd:             500,
+    },
+    counter: {
+      cost:       0,
+      damage:     15,
+      range:      350,
+      width:      60,
+      pushPower:  900,
+      cd:         300,
+    },
+  },
 };
 
 
@@ -1942,6 +1987,25 @@ const CHARACTERS = {
         desc:`주변 원형 베기. 적중 시 ${BALANCE.sya.counter.freezeDur/1000}초 빙결 (${BALANCE.sya.counter.damage})` },
     ],
   },
+
+  runef: {
+    id:        'runef',
+    name:      '루네프',
+    color:     '#4c10c4',
+    maxHealth: BALANCE.runef.hp,
+    speed:     BALANCE.runef.speed,
+    radius:    BALANCE.runef.radius,
+    statsText: [['체력',String(BALANCE.runef.hp)],['이동속도','보통'],['스타일','콤보형 중거리 저격수']],
+    desc:      '불·얼음·번개·바람 속성 마법을 구사하는 캐릭터',
+    skills: [
+      { key:'LMB', name:'마법탄', cost:BALANCE.runef.lmb.cost,
+        desc:`최대 2회 연사 가능. 이 경우 다음 마법탄의 피해 증가. (${BALANCE.runef.lmb.damage}/${BALANCE.runef.lmb.damage2})` },
+      { key:'RMB', name:'속성마법', cost:BALANCE.runef.rmb.cost,
+        desc:`우클릭 : 화염구 마법 / 우클릭+좌클릭 : 빙결 마법 / 우클릭+우클릭 : 낙뢰 마법` },
+      { key:'L-Shift', name:'바람마법', cost:0,
+        desc:`전방으로 토네이도 생성. 적을 사거리 끝까지 밀어냄 (${BALANCE.runef.counter.damage})` },
+    ],
+  },
 };
 
 // ============================================================
@@ -2252,8 +2316,12 @@ fetch('https://Lyangnem.github.io/Duels/hitted.mp3')
   .then(buf => _sfxCtx.decodeAudioData(buf))
   .then(decoded => { _hitBuffer = decoded; })
   .catch(() => {});
+let _hitSfxLast = -1;
 function playHitSfx() {
   if (!_hitBuffer) return;
+  const _now = _sfxCtx.currentTime;
+  if (_now === _hitSfxLast) return; // 같은 오디오 프레임 내 중복 차단
+  _hitSfxLast = _now;
   const src = _sfxCtx.createBufferSource();
   const gain = _sfxCtx.createGain();
   src.buffer = _hitBuffer;
@@ -2268,8 +2336,12 @@ fetch('https://Lyangnem.github.io/Duels/shoot.mp3')
   .then(buf => _sfxCtx.decodeAudioData(buf))
   .then(decoded => { _shootBuffer = decoded; })
   .catch(() => {});
+let _shootSfxLast = -1;
 function playShootSfx() {
   if (!_shootBuffer) return;
+  const _now = _sfxCtx.currentTime;
+  if (_now === _shootSfxLast) return;
+  _shootSfxLast = _now;
   const src = _sfxCtx.createBufferSource();
   const gain = _sfxCtx.createGain();
   src.buffer = _shootBuffer;
@@ -2616,6 +2688,12 @@ function onData(d) {
       addFx({...d.fx}); break;
     case 'devAlert':
       alert('상대방이 개발자 모드에 진입했습니다.'); break;
+    case 'windPush':
+      if (!L.burrowing && !L.dodging) {
+        const _wpNx = Math.max(L.radius, Math.min(WORLD_W-L.radius, L.x+d.vx));
+        const _wpNy = Math.max(L.radius, Math.min(WORLD_H-L.radius, L.y+d.vy));
+        if (!bulletHitsWall({x:_wpNx,y:_wpNy,radius:L.radius})) { L.x=_wpNx; L.y=_wpNy; L.tx=_wpNx; L.ty=_wpNy; }
+      } break;
     case 'syaInvis':
       R._syaInvisible = d.v;
       if (d.v) { R._syaInvisStart = performance.now(); } // 수신 시각 기준
@@ -4051,6 +4129,29 @@ function drawAttackPreview(preview) {
       ctx.globalAlpha = 0.14; ctx.fillRect(0, -hw, sh.len, hw * 2);
       ctx.globalAlpha = 0.55; ctx.strokeRect(0, -hw, sh.len, hw * 2);
       ctx.restore();
+
+    } else if (sh.type === 'line') {
+      // 직선 경로 — 벽 만나면 끊기 (비관통 투사체)
+      const hw2 = (sh.width || 16) / 2;
+      const _wallStop = sh.pierceWalls ? sh.range : (() => {
+        const _step = 8, _r2 = hw2;
+        for (let _d = _step; _d <= sh.range; _d += _step) {
+          const _cx = L.x + cos*_d, _cy = L.y + sin*_d;
+          if (currentMap?.walls?.some(w =>
+            _cx+_r2 > w.x && _cx-_r2 < w.x+w.w &&
+            _cy+_r2 > w.y && _cy-_r2 < w.y+w.h
+          )) return _d - _step;
+        }
+        return sh.range;
+      })();
+      const ex = L.x + cos * _wallStop, ey = L.y + sin * _wallStop;
+      const px = -sin * hw2, py = cos * hw2;
+      ctx.beginPath();
+      ctx.moveTo(L.x + px, L.y + py); ctx.lineTo(ex + px, ey + py);
+      ctx.lineTo(ex - px, ey - py); ctx.lineTo(L.x - px, L.y - py);
+      ctx.closePath();
+      ctx.globalAlpha = 0.12; ctx.fill();
+      ctx.globalAlpha = 0.45; ctx.stroke();
     }
   }
 
@@ -7234,6 +7335,192 @@ const SKILLS = {
       }, BALANCE.counter.delay);
     },
   },
+
+  // ── 루네프 ──────────────────────────────────────────────────
+  runef: {
+    lmb(angle) {
+      const B = BALANCE.runef.lmb;
+      // 속성마법 활성 중: 얼음 전환 (평타 없음)
+      if (L._runefRmbActive) {
+        L._runefNextSpell = 'ice';
+        L._runefRmbAngle = getAngle(); // 현재 마우스 방향 갱신
+        const Br = BALANCE.runef.rmb;
+        L._attackPreview = { shapes:[{type:'sector', range:augMeleeRange(Br.iceRange), halfAngle:Br.iceHalfAngle}] };
+        return;
+      }
+      if (L.lmbCooldown > 0) return;
+      if (!useStam(B.cost)) return;
+      const dmg = L._runefShot1 ? B.damage2 : B.damage;
+      const b = {
+        id:uid(), x:L.x, y:L.y, radius:augBulletRadius(B.radius),
+        speed:augBulletSpeed(B.speed), dx:Math.cos(angle), dy:Math.sin(angle),
+        damage:dmg, maxRange:B.range, traveled:0, color:'#a070ff',
+      };
+      applyPierceShot(b); localBullets.push(b); send({type:'bullet',...b}); playShootSfx();
+      L.lastAttackTime = performance.now();
+      if (!L._runefShot1) {
+        L._runefShot1 = true; L.lmbCooldown = B.cd1;
+        L._runefShot1Timer = setTimeout(() => { L._runefShot1 = false; }, 350);
+      } else {
+        L._runefShot1 = false; clearTimeout(L._runefShot1Timer); L.lmbCooldown = B.cd2;
+      }
+    },
+
+    rmb(angle) {
+      const B = BALANCE.runef.rmb;
+      if (L.rmbCooldown > 0) return;
+      if (L._runefRmbActive) {
+        // 번개 전환 (스테미나 추가 소모 없음)
+        L._runefNextSpell = 'lightning';
+        L._runefRmbAngle = getAngle();
+        const dist = Math.min(B.lightningRange, Math.hypot(mouseX-L.x, mouseY-L.y));
+        L._attackPreview = { shapes:[{type:'circle', r:B.lightningRadius, offsetDist:dist}] };
+        return;
+      }
+      if (!useStam(B.cost)) return;
+      L._runefRmbActive = true;
+      L._runefNextSpell = 'fire';
+      L._runefRmbAngle = getAngle();
+      L._runefRmbStart = performance.now();
+      L._runefRmbTimer = setTimeout(() => {
+        if (!gameOn || !L._runefRmbActive) return;
+        const spell = L._runefNextSpell || 'fire';
+        const ang = L._runefRmbAngle;
+        const sx = L.x, sy = L.y; // 발사 시 현재 위치
+        if (spell === 'fire') SKILLS.runef._castFire(ang, sx, sy);
+        else if (spell === 'ice') SKILLS.runef._castIce(ang, sx, sy);
+        else if (spell === 'lightning') SKILLS.runef._castLightning(ang, sx, sy);
+      }, B.window);
+    },
+
+    _castFire(angle, sx, sy) {
+      const B = BALANCE.runef.rmb;
+      L._runefRmbActive = false; L._attackPreview = null;
+      clearTimeout(L._runefRmbTimer); L.rmbCooldown = B.cd;
+      const _sx = sx ?? L.x, _sy = sy ?? L.y;
+      const b = {
+        id:uid(), x:_sx, y:_sy, radius:augBulletRadius(B.fireRadius),
+        speed:augBulletSpeed(B.fireSpeed), dx:Math.cos(angle), dy:Math.sin(angle),
+        damage:B.fireDamage, maxRange:B.fireRange, traveled:0,
+        isRunefFire:true, expRadius:B.fireExpRadius, expDamage:B.fireExpDamage,
+        color:'#ff2200',
+      };
+      localBullets.push(b); send({type:'bullet',...b}); playShootSfx();
+      L.lastAttackTime = performance.now();
+    },
+
+    _castIce(angle, sx, sy) {
+      const B = BALANCE.runef.rmb;
+      L._runefRmbActive = false; L._attackPreview = null;
+      clearTimeout(L._runefRmbTimer); L.rmbCooldown = B.cd;
+      const _sx = sx ?? L.x, _sy = sy ?? L.y;
+      if (_trainingMode) {
+        for (const _ib of _trainingBots) {
+          if (_ib.hidden||!_ib.isAlive||Math.hypot(_ib.x-_sx,_ib.y-_sy)>augMeleeRange(B.iceRange)+_ib.radius) continue;
+          const _ia = Math.atan2(_ib.y-_sy, _ib.x-_sx);
+          if (Math.abs(((_ia-angle)+Math.PI*3)%(Math.PI*2)-Math.PI) < B.iceHalfAngle)
+            { _applyBotDamage(_ib, applyDmgAugs(B.iceDamage)); playHitSfx(); }
+        }
+      } else {
+        if (Math.hypot(R.x-_sx,R.y-_sy) < augMeleeRange(B.iceRange)+R.radius) {
+          const _ia = Math.atan2(R.y-_sy, R.x-_sx);
+          if (Math.abs(((_ia-angle)+Math.PI*3)%(Math.PI*2)-Math.PI) < B.iceHalfAngle)
+            { hitRemote(B.iceDamage); freezeRemote(B.iceFreezeDur); playHitSfx(); }
+        }
+        hitCtxSpirit({x:_sx, y:_sy, angle, range:augMeleeRange(B.iceRange), halfAngle:B.iceHalfAngle}, B.iceDamage);
+      }
+      addFx({type:'swing', x:_sx, y:_sy, angle, range:augMeleeRange(B.iceRange), halfAngle:B.iceHalfAngle, dur:12, maxDur:12, col:'100,200,255'});
+      send({type:'fx', fx:{type:'swing', x:_sx, y:_sy, angle, range:augMeleeRange(B.iceRange), halfAngle:B.iceHalfAngle, dur:12, maxDur:12, col:'100,200,255'}});
+      addFx({type:'freeze', x:_sx, y:_sy, r:0, maxR:augMeleeRange(B.iceRange), dur:10, maxDur:10});
+      L.lastAttackTime = performance.now();
+    },
+
+    _castLightning(angle, sx, sy) {
+      const B = BALANCE.runef.rmb;
+      L._runefRmbActive = false; L._attackPreview = null;
+      clearTimeout(L._runefRmbTimer); L.rmbCooldown = B.cd;
+      const _sx = sx ?? L.x, _sy = sy ?? L.y;
+      const dist = Math.min(B.lightningRange, Math.hypot(mouseX-_sx, mouseY-_sy));
+      const tx = _sx + Math.cos(angle)*dist, ty = _sy + Math.sin(angle)*dist;
+      let _lc = 0;
+      const _li = setInterval(() => {
+        if (!gameOn||_lc>=B.lightningCount) { clearInterval(_li); return; }
+        _lc++;
+        addFx({type:'runefLightning', x:tx, y:ty, r:B.lightningRadius, dur:8, maxDur:8});
+        send({type:'fx', fx:{type:'runefLightning', x:tx, y:ty, r:B.lightningRadius, dur:8, maxDur:8}});
+        if (_trainingMode) {
+          for (const _lb of _trainingBots)
+            if (_lb.isAlive&&!_lb.hidden&&Math.hypot(_lb.x-tx,_lb.y-ty)<B.lightningRadius+_lb.radius)
+              { _applyBotDamage(_lb, applyDmgAugs(B.lightningDamage)); playHitSfx(); }
+        } else if (Math.hypot(R.x-tx,R.y-ty)<B.lightningRadius+R.radius) { hitRemote(B.lightningDamage); playHitSfx(); }
+      }, B.lightningInterval);
+      L.lastAttackTime = performance.now();
+    },
+
+    counter(angle) {
+      const B = BALANCE.runef.counter;
+      if (!L.counterReady) return;
+      L.counterReady = false; L.lmbCooldown = B.cd; L.rmbCooldown = B.cd;
+      L.color = '#ffd700'; send({type:'colorChange', color:'#ffd700'});
+      L._attackPreview = { shapes:[{type:'line', range:B.range, width:B.width*2}] };
+      const _tok = ++L._counterToken;
+      setTimeout(() => {
+        L._attackPreview = null;
+        if (!gameOn||L._counterToken!==_tok) return;
+        L.color = L.defaultColor; send({type:'colorChange', color:L.defaultColor});
+        playShootSfx(); // 바람마법 시전 소리
+        // 바람: 두 단계
+        // 1단계: FX가 전진하며 적 탐색
+        // 2단계: 적중 후 적의 현재 위치에서 방향대로 남은 거리만큼 밀기
+        const _bAngle = angle;
+        const _bDx = Math.cos(_bAngle), _bDy = Math.sin(_bAngle);
+        let _wDist = 0, _wHit = false, _wBot = null;
+        const _wSpd = 10;
+        const _wInt = setInterval(() => {
+          if (!gameOn) { clearInterval(_wInt); return; }
+          _wDist += _wSpd;
+          // FX는 항상 발사자 기준 직선 경로
+          const _wx = L.x + _bDx*_wDist, _wy = L.y + _bDy*_wDist;
+          // 벽(맵 경계 + 내부 벽) 도달 시 중단
+          if (_wx < 0||_wx > WORLD_W||_wy < 0||_wy > WORLD_H) { clearInterval(_wInt); return; }
+          if (bulletHitsWall({x:_wx, y:_wy, radius:B.width})) { clearInterval(_wInt); return; }
+          addFx({type:'runefTornado', x:_wx, y:_wy, width:B.width, dur:8, maxDur:8});
+          send({type:'fx', fx:{type:'runefTornado', x:_wx, y:_wy, width:B.width, dur:8, maxDur:8}});
+          if (!_trainingMode) {
+            // 적 탐색 (미적중 시)
+            if (!_wHit && Math.hypot(R.x-_wx, R.y-_wy) < B.width+R.radius) {
+              _wHit = true; hitRemote(B.damage);
+            }
+            // 적중 후: FX 위치로 적을 밀어냄
+            if (_wHit) {
+              send({type:'windPush', vx:_bDx*_wSpd, vy:_bDy*_wSpd});
+              R.tx = Math.max(R.radius, Math.min(WORLD_W-R.radius, R.tx+_bDx*_wSpd));
+              R.ty = Math.max(R.radius, Math.min(WORLD_H-R.radius, R.ty+_bDy*_wSpd));
+            }
+          } else {
+            if (!_wHit) {
+              for (const _tb of _trainingBots) {
+                if (_tb.isAlive&&!_tb.hidden&&Math.hypot(_tb.x-_wx,_tb.y-_wy)<B.width+_tb.radius) {
+                  _wHit = true; _wBot = _tb;
+                  _applyBotDamage(_tb, applyDmgAugs(B.damage)); break;
+                }
+              }
+            }
+            // 적중 봇: 매 프레임 FX 위치로 이동
+            if (_wBot&&_wBot.isAlive) {
+              const _bnx = Math.max(_wBot.radius, Math.min(WORLD_W-_wBot.radius, _wBot.x+_bDx*_wSpd));
+              const _bny = Math.max(_wBot.radius, Math.min(WORLD_H-_wBot.radius, _wBot.y+_bDy*_wSpd));
+              if (!bulletHitsWall({x:_bnx, y:_bny, radius:_wBot.radius})) {
+                _wBot.x = _bnx; _wBot.y = _bny;
+              }
+            }
+          }
+          if (_wDist >= B.range) clearInterval(_wInt);
+        }, FRAME_MS);
+        L.lastAttackTime = performance.now();
+      }, BALANCE.counter.delay);
+    },
+  },
 };
 // ============================================================
 
@@ -7942,6 +8229,17 @@ function moveBullets(dt=1) {
       }
     } else {
       // 다즈빈 파동 구체: 관통 탄 — 틱 피해만, 충돌로 제거 안 함
+      // 루네프 파이어볼
+      if (b.isRunefFire) {
+        if (rangeOut||oob||hitWall||hitEnemy) {
+          addFx({type:'runefFireExplosion',x:b.x,y:b.y,r:b.expRadius,dur:16,maxDur:16});
+          send({type:'fx',fx:{type:'runefFireExplosion',x:b.x,y:b.y,r:b.expRadius,dur:16,maxDur:16}});
+          if (!_trainingMode&&Math.hypot(R.x-b.x,R.y-b.y)<b.expRadius+R.radius){hitRemote(b.expDamage);knockbackRemote(500);}
+          else if(_trainingMode){for(const _fb of _trainingBots)if(_fb.isAlive&&!_fb.hidden&&Math.hypot(_fb.x-b.x,_fb.y-b.y)<b.expRadius+_fb.radius)_applyBotDamage(_fb,applyDmgAugs(b.expDamage));}
+          localBullets.splice(i,1);
+        }
+        continue;
+      }
       if (b.isDazWave) {
         if (rangeOut||oob) { localBullets.splice(i,1); }
         continue;
@@ -8110,6 +8408,23 @@ function draw() {
     } else if (f.type==='devModeAlert') {
       // 상대가 개발자 모드 진입 - 1회만 alert
       if (!window._devAlertShown) { window._devAlertShown=true; setTimeout(()=>{window._devAlertShown=false;},5000); alert('상대방이 개발자 모드에 진입했습니다.'); }
+    } else if (f.type==='runefFireExplosion') {
+      const _ft=1-f.dur/f.maxDur;
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(0.5+_ft*0.5),0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,30,0,${a*0.35*(1-_ft)})`; ctx.fill();
+      ctx.strokeStyle=`rgba(255,80,50,${a*0.9})`; ctx.lineWidth=3; ctx.stroke();
+    } else if (f.type==='runefLightning') {
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(255,230,50,${a*0.95})`; ctx.lineWidth=4; ctx.stroke();
+      ctx.fillStyle=`rgba(255,220,0,${a*0.25})`; ctx.fill();
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.r*0.3,0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,255,200,${a*0.9})`; ctx.fill();
+    } else if (f.type==='runefTornado') {
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.width||50,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(0,210,60,${a*0.9})`; ctx.lineWidth=3; ctx.stroke();
+      ctx.fillStyle=`rgba(0,180,50,${a*0.2})`; ctx.fill();
+      ctx.beginPath(); ctx.arc(f.x,f.y,(f.width||50)*0.55,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(100,255,120,${a*0.5})`; ctx.lineWidth=2; ctx.stroke();
     } else if (f.type==='healPulse') {
       // 치유회피 — 초록 링
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1, f.r), 0, Math.PI*2);
@@ -9764,6 +10079,15 @@ function draw() {
         if (isPierce) {
           ctx.strokeStyle = `rgba(200,110,140,${a*0.7})`; ctx.lineWidth = 1.5; ctx.stroke();
         }
+      } else if (bullet.isRunefFire) {
+        const _rftx=bullet.x-bullet.dx*20, _rfty=bullet.y-bullet.dy*20;
+        const _rfg=ctx.createLinearGradient(bullet.x,bullet.y,_rftx,_rfty);
+        _rfg.addColorStop(0,`rgba(255,30,0,${a})`); _rfg.addColorStop(1,'rgba(180,0,0,0)');
+        ctx.beginPath(); ctx.moveTo(bullet.x,bullet.y); ctx.lineTo(_rftx,_rfty);
+        ctx.strokeStyle=_rfg; ctx.lineWidth=5; ctx.stroke();
+        ctx.beginPath(); ctx.arc(bullet.x,bullet.y,bullet.radius,0,Math.PI*2);
+        ctx.fillStyle=`rgba(255,50,0,${a})`; ctx.fill();
+        ctx.strokeStyle=`rgba(255,180,50,${a*0.8})`; ctx.lineWidth=2; ctx.stroke();
       } else {
         ctx.beginPath(); ctx.arc(bullet.x,bullet.y,bullet.radius,0,Math.PI*2);
         ctx.fillStyle=`rgba(${r},${g},${b},${a})`; ctx.fill();
@@ -10549,6 +10873,14 @@ function drawPlayer(p, label) {
     }
   }
 
+  // 루네프 선딜레이 게이지
+  if (p===L && L.charDef?.id==='runef' && L._runefRmbActive && L._runefRmbStart) {
+    const _rPct = Math.min(1, (performance.now()-L._runefRmbStart)/BALANCE.runef.rmb.window);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius+6, -Math.PI/2, -Math.PI/2+Math.PI*2*_rPct);
+    ctx.strokeStyle = L.charDef.color; ctx.lineWidth=3; ctx.stroke();
+  }
+
   // 파비 버티기 링 — 로컬·상대 공통 표시
   const showFortify = (p===L && L._erapabiFortify) || (p===R && R.erapabiFortify);
   if (showFortify) {
@@ -11202,7 +11534,7 @@ function resetL() {
   L._prillZoneToken=0;
   L._dazPortals=[]; // 다즈빈 포탈 초기화
   L._yuiHistory=[]; L._yuiLastSample=0; // 유이 히스토리 초기화
-  L._pelunaAnvils=[]; L._sherinaPaths=[]; L._pierceShotReady=false; L._pierceShotCd=0; L._pierceShotUsed=false; L._syaInvisible=false; L._syaAttackBoost=0; L._syaInvisStart=0; L._syaInvisEndAt=0; L._syaHitRevealEnd=0; L._thornLastTick=0; L._startBoostEnd = getAugCount('start_boost')>0 ? performance.now()+8000 : 0; L._sherinaEchoZones=[]; L._sherinaGlobalHitCd=new Map(); L._pelunaEmpowerExpiry=0; L._pelunaPreswing=false; L._pelunaToken=0
+  L._pelunaAnvils=[]; L._sherinaPaths=[]; L._pierceShotReady=false; L._pierceShotCd=0; L._pierceShotUsed=false; L._runefRmbActive=false; L._runefShot1=false; L._runefNextSpell='fire'; clearTimeout(L._runefRmbTimer); clearTimeout(L._runefShot1Timer); L._syaInvisible=false; L._syaAttackBoost=0; L._syaInvisStart=0; L._syaInvisEndAt=0; L._syaHitRevealEnd=0; L._thornLastTick=0; L._startBoostEnd = getAugCount('start_boost')>0 ? performance.now()+8000 : 0; L._sherinaEchoZones=[]; L._sherinaGlobalHitCd=new Map(); L._pelunaEmpowerExpiry=0; L._pelunaPreswing=false; L._pelunaToken=0
   R._pelunaAnvil=null;
     if (_dodgeInterval) { clearInterval(_dodgeInterval); _dodgeInterval=null; }
 }
@@ -11908,6 +12240,23 @@ function loop() {
   }
 
   // 스야 은신 처리
+  if (gameOn && L.charDef?.id==='runef' && L._runefRmbActive) {
+    L._runefRmbAngle = getAngle();
+    const Brf=BALANCE.runef.rmb, spell=L._runefNextSpell||'fire';
+    if (spell==='fire') {
+      // 벽까지의 실제 사거리 계산
+      const _fcos=Math.cos(L._runefRmbAngle), _fsin=Math.sin(L._runefRmbAngle);
+      let _fStop = Brf.fireRange;
+      const _fStep = 10, _fR = Brf.fireRadius;
+      for (let _fd = _fStep; _fd <= Brf.fireRange; _fd += _fStep) {
+        const _fx = L.x+_fcos*_fd, _fy = L.y+_fsin*_fd;
+        if (currentMap?.walls?.some(w=>_fx+_fR>w.x&&_fx-_fR<w.x+w.w&&_fy+_fR>w.y&&_fy-_fR<w.y+w.h)) { _fStop=_fd-_fStep; break; }
+      }
+      L._attackPreview={shapes:[{type:'line',range:_fStop,width:Brf.fireRadius*2,pierceWalls:true},{type:'circle',r:Brf.fireExpRadius,offsetDist:_fStop}]};
+    }
+    else if (spell==='ice') L._attackPreview={shapes:[{type:'sector',range:augMeleeRange(Brf.iceRange),halfAngle:Brf.iceHalfAngle}]};
+    else { const _ld=Math.min(Brf.lightningRange,Math.hypot(mouseX-L.x,mouseY-L.y)); L._attackPreview={shapes:[{type:'circle',r:Brf.lightningRadius,offsetDist:_ld}]}; }
+  }
   if (gameOn && L.charDef?.id === 'sya' && L._syaInvisible) {
     const B = BALANCE.sya.rmb;
     const _now_sya = performance.now();
