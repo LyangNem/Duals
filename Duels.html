@@ -212,7 +212,7 @@ input[type=text]:focus{border-color:#4af;}
     </div>
   </div>
 
-  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.27.1</div>
+  <div style="position:absolute;bottom:16px;right:20px;font-size:11px;color:#446;letter-spacing:2px;text-shadow:0 0 8px #4af,0 0 18px #4af4;">v 0.28.0</div>
 </div>
 
 <!-- 방 만들기 -->
@@ -272,9 +272,10 @@ input[type=text]:focus{border-color:#4af;}
   <div class="hpwrap">
     <div class="hplabel" id="local-label">나: 100 / 100</div>
     <div class="bar-bg"><div class="bar-fill bar-hp-local"  id="local-hp"></div></div>
-    <div class="bar-bg"><div class="bar-fill bar-st-local"  id="local-st"></div></div>
+    <div class="bar-bg"><div class="bar-fill bar-st-local" id="local-st"></div></div>
   </div>
   <div class="hpcenter" id="hud-mid">스테미나: 200 / 200</div>
+
   <div class="hpwrap text-right">
     <div class="hplabel" id="remote-label">상대: 100 / 100</div>
     <div class="bar-bg"><div class="bar-fill bar-hp-remote" id="remote-hp"></div></div>
@@ -1549,6 +1550,55 @@ const BALANCE = {
       slushFill:  3,         // 게이지 절반
       cd:         400,
     },
+  },
+
+  // ── 인투 ──────────────────────────────────────────────────
+  intu: {
+    hp:     90,
+    speed:  4.25,
+    radius: 20,
+    // 공통
+    magMax:     12,      // 탄창 최대
+    reloadTime: 2500,    // 재장전 시간 ms
+    // 권총 (LMB 기본)
+    pistol: {
+      cost:   20,        // 스테미나 소모
+      ammo:   1,         // 탄환 소모
+      damage: 15,
+      radius: 10,
+      speed:  20,
+      range:  650,
+      cd:     500,
+    },
+    // 산탄총 (LMB 기본 or RMB)
+    shotgun: {
+      cost:   50,        // 스테미나 소모
+      ammo:   4,         // 탄환 소모
+      pellets: 4,
+      damage: 10,        // 탄당
+      radius: 8,
+      speed:  15,
+      range:  200,
+      spread: 0.35,      // 퍼짐 각도
+      cd:     600,
+    },
+    // 저격총 (반격기)
+    sniper: {
+      cost:   0,
+      damage: 55,
+      radius: 7,
+      speed:  28,
+      range:  1200,
+      cd:     400,
+    },
+    rmb: {
+      cost: 70,  // 무기 전환 스테미나
+      cd: 300,  // 무기 스왑 후 발사 쿨
+    },
+    counter: {
+      cd:             400,
+      knockbackPower: 420,
+    },
   }
 };
 
@@ -2059,11 +2109,30 @@ desc:`우클릭 : 화염구 폭발 (${BALANCE.runef.rmb.fireExpDamage}) / 우클
     desc:      '얼린 멜론으로 빙수 게이지를 채워 적을 얼리는 캐릭터',
     skills: [
       { key:'LMB', name:'얼린 멜론', cost:BALANCE.roon.lmb.cost,
-        desc:`얼린 멜론 2개 투척. 6회 적중 시 1초 빙결. (${BALANCE.roon.lmb.damage})` },
+        desc:`멜론 2발 투척. 10회 적중 시 1초 빙결. (${BALANCE.roon.lmb.damage})` },
       { key:'RMB', name:'빙수 지대', cost:BALANCE.roon.rmb.cost,
-        desc:`커다란 빙수 투척. 적중 시 빙수 지대 중앙으로 이동. 지대 안의 적은 빠져나가지 못하며 게이지가 빠르게 증가. (${BALANCE.roon.rmb.damage})` },
+        desc:`빙수 투척. 적중 시 지대 중앙으로 이동. 지대 안 가둠 + 게이지 빠르게 증가. (${BALANCE.roon.rmb.damage})` },
       { key:'L-Shift', name:'급속 냉동', cost:0,
-        desc:`한기를 내보냄. 즉시 빙결 및 게이지 절반 충전. (${BALANCE.roon.counter.damage})` },
+        desc:`부채꼴 한기. 즉시 빙결 + 게이지 절반 충전. (${BALANCE.roon.counter.damage})` },
+    ],
+  },
+
+  intu: {
+    id:        'intu',
+    name:      '인투',
+    color:     '#a18a8a',
+    maxHealth: BALANCE.intu.hp,
+    speed:     BALANCE.intu.speed,
+    radius:    BALANCE.intu.radius,
+    statsText: [['체력',String(BALANCE.intu.hp)],['이동속도','빠름'],['스타일','사격형 딜러']],
+    desc:      '권총·산탄총·저격총을 상황에 맞게 사용하는 건슬링어',
+    skills: [
+      { key:'LMB', name:'총기', cost:1,
+        desc:`권총(${BALANCE.intu.pistol.damage}) / 산탄총(${BALANCE.intu.shotgun.damage}). 탄창 ${BALANCE.intu.magMax}발, 소진 시 ${BALANCE.intu.reloadTime/1000}초 재장전` },
+      { key:'RMB', name:'무기 스왑', cost:0,
+        desc:`권총↔산탄총 전환 후 즉시 발사` },
+      { key:'L-Shift', name:'저격총', cost:0,
+        desc:`관통 저격. 벽과 적 관통 (${BALANCE.intu.sniper.damage})` },
     ],
   },
 };
@@ -2755,6 +2824,11 @@ function onData(d) {
       if (!L._roonIncomingZones) L._roonIncomingZones=[];
       L._roonIncomingZones.push({x:d.x,y:d.y,r:d.r,expiry:performance.now()+d.dur,lastTick:performance.now()});
       break;
+    case 'intuState': // 인투 탄창/무기 동기화
+      R._intuAmmo = d.ammo;
+      R._intuWeapon = d.weapon;
+      R._intuReloading = d.reloading;
+      break;
     case 'windPush':
       if (!L.burrowing && !L.dodging) {
         const _wpNx = Math.max(L.radius, Math.min(WORLD_W-L.radius, L.x+d.vx));
@@ -2999,7 +3073,7 @@ function startTraining() {
   if (!window._rafRunning) {
     window._rafRunning = true;
     (function rafLoop() {
-      if (gameOn) draw();
+      if (gameOn) { draw(); updateLocalHud(); }
       requestAnimationFrame(rafLoop);
     })();
   }
@@ -3445,7 +3519,7 @@ function receiveHit(dmg) {
     addFx({type:'justdodge', x:L.x, y:L.y, r:0, maxR:120, dur:25, maxDur:25});
     send({type:'fx', fx:{type:'justdodge', x:L.x, y:L.y, r:0, maxR:120, dur:25, maxDur:25}});
     // 주변 적 강한 넉백
-    knockbackRemote(700);
+    knockbackRemote(420);
     for (const pm of peerMinions) send({type:'minionHit', id:pm.id, damage:0, cc:{knockbackPower:700, knockbackAngle:Math.atan2(pm.y-L.y, pm.x-L.x)}});
   }
   L.health = Math.max(0, L.health - dmg);
@@ -5574,7 +5648,7 @@ const SKILLS = {
       }
       addFx({type:'maisilSlash', x:L.x, y:L.y, angle, range:augMeleeRange(B.meleeRange), halfAngle:B.halfAngle, centerAngle:B.centerAngle, dur:10, maxDur:10});
       send({type:'fx', fx:{type:'maisilSlash', x:L.x, y:L.y, angle, range:augMeleeRange(B.meleeRange), halfAngle:B.halfAngle, centerAngle:B.centerAngle, dur:10, maxDur:10}});
-      L.lmbCooldown = B.cd; L.lastAttackTime = performance.now();
+      L.lmbCooldown = B.cd; L.lastAttackTime = performance.now(); SKILLS.intu._syncState();
     },
 
     rmb(angle) {
@@ -7140,7 +7214,7 @@ const SKILLS = {
       send({type:'fx', fx:{type:'sherinaDoubling', x:L.x, y:L.y, dur:20, maxDur:20}});
       L.rmbCooldown = B.cd; L.lastAttackTime = performance.now();
       // 넉백: FX 범위(반경 90px) 이내 적에게만
-      if (!_trainingMode && Math.hypot(R.x-L.x, R.y-L.y) < 150+R.radius) knockbackRemote(800);
+      if (!_trainingMode && Math.hypot(R.x-L.x, R.y-L.y) < 150+R.radius) knockbackRemote(420);
     },
 
     counter(angle) {
@@ -7705,6 +7779,135 @@ const SKILLS = {
           send({type:'fx', fx:{type:'freeze', x:L.x, y:L.y, r:0, maxR:B.range*1.2, dur:12, maxDur:12}});
         }
         L.lastAttackTime = performance.now();
+      }, BALANCE.counter.delay);
+    },
+  },
+  // ── 인투 ──────────────────────────────────────────────────
+  intu: {
+    // 탄창 체크 및 재장전
+    _checkAmmo(cost) {
+      if ((L._intuAmmo||12) < cost) return false;
+      L._intuAmmo = (L._intuAmmo||12) - cost;
+      if (L._intuAmmo <= 0) {
+        L._intuReloading = true;
+        L._intuReloadEnd = performance.now() + BALANCE.intu.reloadTime;
+        SKILLS.intu._syncState();
+        setTimeout(() => {
+          if (!gameOn) return;
+          L._intuAmmo = BALANCE.intu.magMax;
+          L._intuReloading = false;
+          SKILLS.intu._syncState();
+        }, BALANCE.intu.reloadTime);
+      }
+      return true;
+    },
+
+    _syncState() {
+      send({type:'intuState', ammo:L._intuAmmo??12, weapon:L._intuWeapon||'pistol', reloading:!!L._intuReloading});
+    },
+    _firePistolNoStam(angle) {
+      const B = BALANCE.intu.pistol;
+      if (!SKILLS.intu._checkAmmo(B.ammo)) return false;
+      const b={id:uid(),x:L.x,y:L.y,radius:augBulletRadius(B.radius),speed:augBulletSpeed(B.speed),dx:Math.cos(angle),dy:Math.sin(angle),damage:B.damage,maxRange:augMeleeRange(B.range),traveled:0,color:'#a18a8a'};
+      applyPierceShot(b); localBullets.push(b); send({type:'bullet',...b}); SKILLS.intu._syncState(); playShootSfx(); return true;
+    },
+    _fireShotgunNoStam(angle) {
+      const B=BALANCE.intu.shotgun;
+      const _av=L._intuAmmo||0; if(_av<=0) return false;
+      if(!SKILLS.intu._checkAmmo(Math.min(_av,B.ammo))) return false;
+      for(let i=0;i<B.pellets;i++){const a=angle+(i-(B.pellets-1)/2)*(B.spread/(B.pellets-1));const b={id:uid(),x:L.x,y:L.y,radius:augBulletRadius(B.radius),speed:augBulletSpeed(B.speed),dx:Math.cos(a),dy:Math.sin(a),damage:B.damage,maxRange:augMeleeRange(B.range),traveled:0,color:'#c4aa88'};applyPierceShot(b);localBullets.push(b);send({type:'bullet',...b});}
+      playShootSfx(); return true;
+    },
+    _firePistol(angle) {
+      const B = BALANCE.intu.pistol;
+      if (!useStam(B.cost)) return false;
+      if (!SKILLS.intu._checkAmmo(B.ammo)) return false;
+      const b = {
+        id:uid(), x:L.x, y:L.y,
+        radius:augBulletRadius(B.radius), speed:augBulletSpeed(B.speed),
+        dx:Math.cos(angle), dy:Math.sin(angle),
+        damage:B.damage, maxRange:augMeleeRange(B.range), traveled:0,
+        color:'#a18a8a',
+      };
+      applyPierceShot(b);
+      localBullets.push(b); send({type:'bullet',...b}); playShootSfx();
+      return true;
+    },
+
+    _fireShotgun(angle) {
+      const B = BALANCE.intu.shotgun;
+      if (!useStam(B.cost)) return false;
+      const _avail = L._intuAmmo || 0;
+      if (_avail <= 0) return false;
+      const _useCost = Math.min(_avail, B.ammo);
+      if (!SKILLS.intu._checkAmmo(_useCost)) return false;
+      for (let i=0; i<B.pellets; i++) {
+        const a = angle + (i - (B.pellets-1)/2) * (B.spread/(B.pellets-1));
+        const b = {
+          id:uid(), x:L.x, y:L.y,
+          radius:augBulletRadius(B.radius), speed:augBulletSpeed(B.speed),
+          dx:Math.cos(a), dy:Math.sin(a),
+          damage:B.damage, maxRange:augMeleeRange(B.range), traveled:0,
+          color:'#c4aa88',
+        };
+        applyPierceShot(b);
+        localBullets.push(b); send({type:'bullet',...b});
+      }
+      playShootSfx();
+      return true;
+    },
+
+    lmb(angle) {
+      if (L.lmbCooldown > 0) return;
+      if (L._intuReloading) return;
+      const _isShotgun = L._intuWeapon === 'shotgun';
+      const B = _isShotgun ? BALANCE.intu.shotgun : BALANCE.intu.pistol;
+      const fired = _isShotgun ? SKILLS.intu._fireShotgun(angle) : SKILLS.intu._firePistol(angle);
+      if (fired) { L.lmbCooldown = B.cd; L.lastAttackTime = performance.now(); }
+    },
+
+    rmb(angle) {
+      // 무기 스왑 후 즉시 발사
+      if (L.rmbCooldown > 0) return;
+      if (L._intuReloading) return;
+      L._intuWeapon = L._intuWeapon === 'shotgun' ? 'pistol' : 'shotgun';
+      const _rmbSwapB = L._intuWeapon==='shotgun'?BALANCE.intu.shotgun:BALANCE.intu.pistol;
+      if (!useStam(_rmbSwapB.cost)) { L._intuWeapon = L._intuWeapon==='shotgun'?'pistol':'shotgun'; return; } // 전환 후 해당 무기 스테미나
+      const _isShotgun = L._intuWeapon === 'shotgun';
+      const _rmbB = _isShotgun ? BALANCE.intu.shotgun : BALANCE.intu.pistol;
+      const _rmbFired = _isShotgun ? SKILLS.intu._fireShotgunNoStam(angle) : SKILLS.intu._firePistolNoStam(angle);
+      if (_rmbFired) { L.lmbCooldown = _rmbB.cd; L.rmbCooldown = BALANCE.intu.rmb.cd; L.lastAttackTime = performance.now(); }
+    },
+
+    counter(angle) {
+      const B = BALANCE.intu.sniper;
+      if (!L.counterReady) return;
+      if ((L._intuAmmo||0) < 1) return; // 탄창 없으면 발사 불가
+      L.counterReady = false; L.lmbCooldown = BALANCE.intu.counter.cd; L.rmbCooldown = BALANCE.intu.counter.cd;
+      L.color = '#ffd700'; send({type:'colorChange', color:'#ffd700'});
+      addFx({type:'counterCharge', x:L.x, y:L.y, r:30, maxR:30, dur:BALANCE.counter.delay/FRAME_MS, maxDur:BALANCE.counter.delay/FRAME_MS, col:'161,138,138'});
+      L._intuCounterActive = true;
+      L._intuWeapon = 'sniper'; // 선딜레이 중 SP 표시
+      L._attackPreview = {shapes:[{type:'line', range:BALANCE.intu.sniper.range>800?800:BALANCE.intu.sniper.range, width:8}]};
+      const _sTok = ++L._counterToken;
+      setTimeout(() => {
+        if (!gameOn || L._counterToken !== _sTok) return;
+        L._intuCounterActive = false; L._attackPreview = null;
+        L.color = L.defaultColor; send({type:'colorChange', color:L.defaultColor});
+        L._intuWeapon = L._intuWeapon === 'sniper' ? 'pistol' : L._intuWeapon;
+        SKILLS.intu._checkAmmo(1);
+      // 저격: 관통 (발사 시점 마우스 방향)
+      const _sAngle = Math.atan2(mouseY-L.y, mouseX-L.x);
+      const b = {
+        id:uid(), x:L.x, y:L.y,
+        radius:augBulletRadius(10), speed:augBulletSpeed(B.speed),
+        dx:Math.cos(_sAngle), dy:Math.sin(_sAngle),
+        damage:B.damage, maxRange:B.range, traveled:0,
+        pierceWalls:true, pierceEnemies:true,
+        color: L.color, isIntuSniper:true,
+      };
+      localBullets.push(b); send({type:'bullet',...b}); playShootSfx();
+      L.lastAttackTime = performance.now();
       }, BALANCE.counter.delay);
     },
   },
@@ -8416,6 +8619,7 @@ function moveBullets(dt=1) {
       }
     } else {
       // 다즈빈 파동 구체: 관통 탄 — 틱 피해만, 충돌로 제거 안 함
+      // 인투 저격탄: hit블록에서 처리됨
       // 로온 얼린 멜론: 적중 시 빙수 게이지
       if (b.isRoonMelon) {
         if (hitEnemy||rangeOut||oob||hitWall) {
@@ -8477,7 +8681,7 @@ function moveBullets(dt=1) {
         if (rangeOut||oob||hitWall||hitEnemy) {
           addFx({type:'runefFireExplosion',x:b.x,y:b.y,r:b.expRadius,dur:16,maxDur:16});
           send({type:'fx',fx:{type:'runefFireExplosion',x:b.x,y:b.y,r:b.expRadius,dur:16,maxDur:16}});
-          if (!_trainingMode&&Math.hypot(R.x-b.x,R.y-b.y)<b.expRadius+R.radius){hitRemote(b.expDamage);knockbackRemote(500);}
+          if (!_trainingMode&&Math.hypot(R.x-b.x,R.y-b.y)<b.expRadius+R.radius){hitRemote(b.expDamage);knockbackRemote(420);}
           else if(_trainingMode){for(const _fb of _trainingBots)if(_fb.isAlive&&!_fb.hidden&&Math.hypot(_fb.x-b.x,_fb.y-b.y)<b.expRadius+_fb.radius)_applyBotDamage(_fb,applyDmgAugs(b.expDamage));}
           localBullets.splice(i,1);
         }
@@ -8505,12 +8709,18 @@ function moveBullets(dt=1) {
           knockbackRemote(b.cherKbPower);
           localBullets.splice(i, 1); continue;
         }
+        // 저격탄: 1회만 피해+넉백, splice 안 함 (관통)
+        if (b.isIntuSniper) {
+          if (!b._sniperHit) { b._sniperHit=true; hitRemote(b.damage); knockbackRemote(BALANCE.intu.counter.knockbackPower); playHitSfx(); }
+          continue; // 제거 안 함
+        }
         hitRemote(b.damage);
         if (b._kbRef && !b._kbRef.fired) { b._kbRef.fired=true; knockbackRemote(b._kbRef.power); }
         if (b._herBurst && b._herSlowDur) {
           R._slowEnd = Math.max(R._slowEnd||0, performance.now() + b._herSlowDur);
           send({type:'slowPlayer', dur: b._herSlowDur});
         }
+        if (b.pierceEnemies) continue; // 관통탄: 제거 안 함
         localBullets.splice(i,1);
       }
     }
@@ -10331,6 +10541,16 @@ function draw() {
         if (isPierce) {
           ctx.strokeStyle = `rgba(200,110,140,${a*0.7})`; ctx.lineWidth = 1.5; ctx.stroke();
         }
+      } else if (bullet.isIntuSniper) {
+        // 저격탄 — 캐릭터색 빔 스타일
+        const _stx=bullet.x-bullet.dx*40, _sty=bullet.y-bullet.dy*40;
+        const _sg=ctx.createLinearGradient(bullet.x,bullet.y,_stx,_sty);
+        const _sCol=bullet.color||'#a18a8a';
+        _sg.addColorStop(0,`${_sCol}`); _sg.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.beginPath(); ctx.moveTo(bullet.x,bullet.y); ctx.lineTo(_stx,_sty);
+        ctx.strokeStyle=_sg; ctx.lineWidth=bullet.radius*2; ctx.stroke();
+        ctx.beginPath(); ctx.arc(bullet.x,bullet.y,bullet.radius,0,Math.PI*2);
+        ctx.fillStyle=_sCol; ctx.fill();
       } else if (bullet.isRoonMelon) {
         ctx.beginPath(); ctx.arc(bullet.x,bullet.y,bullet.radius,0,Math.PI*2);
         ctx.fillStyle=`rgba(165,249,166,${a})`; ctx.fill();
@@ -10809,6 +11029,26 @@ function drawPlayer(p, label) {
   ctx.fillStyle='#111'; ctx.fillRect(sbx,sby,sbw,sbh);
   ctx.fillStyle=stPct>0.4?'#fa0':'#f64'; ctx.fillRect(sbx,sby,sbw*stPct,sbh);
 
+  // 인투 무기명 + 탄창 — 스테미나 바 아래
+  const _intuP = (p===L&&L.charDef?.id==='intu')?L:((p===R&&(R.charDef?.id==='intu'||peerCharId==='intu'))?R:null);
+  if (_intuP) {
+    const _iSG = _intuP._intuWeapon === 'shotgun';
+    const _iAmmo = _intuP._intuAmmo ?? 12;
+    const _iMax = BALANCE.intu.magMax;
+    const _iReload = _intuP._intuReloading;
+    // 무기명: 스테미나 바 오른쪽
+    ctx.font='bold 11px sans-serif'; ctx.textAlign='left';
+    const _iSP = _intuP._intuWeapon === 'sniper';
+    ctx.fillStyle=_iSP?'#ffe066':(_iSG?'#e8c070':'#d4b8b8');
+    ctx.fillText(_iSP?'SP':(_iSG?'SG':'PT'), sbx+sbw+5, sby+sbh+5);
+    // 탄창 바: 스테미나 바 아래
+    const ibw=sbw, ibh=4, ibx=sbx, iby=sby+sbh+3;
+    ctx.fillStyle='#111'; ctx.fillRect(ibx,iby,ibw,ibh);
+    const _iPct = _iAmmo/_iMax;
+    ctx.fillStyle=_iReload?'#ffd97a':(_iSG?'#c4aa88':'#a18a8a');
+    ctx.fillRect(ibx,iby,ibw*_iPct,ibh);
+    ctx.textAlign='center';
+  }
   // 프릴 콤보 유지 게이지 — 스테미나 바 아래
   if (p===L && L.charDef?.id==='prill' && (L._prillCombo||0) > 0) {
     const _cNow = performance.now();
@@ -11144,6 +11384,14 @@ function drawPlayer(p, label) {
     }
   }
 
+  // 인투 무기 이름은 HUD에 표시 (canvas 제거)
+  // 인투 재장전 아크 게이지
+  if (p === L && L.charDef?.id === 'intu' && L._intuReloading && L._intuReloadEnd) {
+    const _rProg = Math.min(1, 1-(L._intuReloadEnd-performance.now())/BALANCE.intu.reloadTime);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius+8, -Math.PI/2, -Math.PI/2+Math.PI*2*_rProg);
+    ctx.strokeStyle=L.charDef?.color||'#a18a8a'; ctx.lineWidth=3; ctx.stroke();
+  }
   // 로온 빙수 게이지 표시 (적 체력바 우측 — 상대 화면에서 R의 게이지)
   if (p === R && (R._roonSlush||0) > 0) {
     const _slushMax = BALANCE.roon.lmb.slushMax;
@@ -11272,6 +11520,7 @@ function drawMinimap() {
 // ui.js — HUD 업데이트 · 게임 종료/리매치 · 화면 전환 유틸
 // ============================================================
 function updateLocalHud() {
+  // 인투 탄창은 canvas(drawPlayer)에서 표시
   const hp=Math.max(0,L.health);
   const stamMax = L._augStamMax ?? STAM_MAX;
   document.getElementById('local-hp').style.width=(hp/L.maxHealth*100)+'%';
@@ -11827,7 +12076,7 @@ function resetL() {
   L._prillZoneToken=0;
   L._dazPortals=[]; // 다즈빈 포탈 초기화
   L._yuiHistory=[]; L._yuiLastSample=0; // 유이 히스토리 초기화
-  L._pelunaAnvils=[]; L._sherinaPaths=[]; L._pierceShotReady=false; L._pierceShotCd=0; L._pierceShotUsed=false; L._roonSlush=0; L._roonZones=[]; L._roonIncomingZones=[]; R._roonSlush=0; L._runefRmbActive=false; L._runefShot1=false; L._runefNextSpell='fire'; clearTimeout(L._runefRmbTimer); clearTimeout(L._runefShot1Timer); L._syaInvisible=false; L._syaAttackBoost=0; L._syaInvisStart=0; L._syaInvisEndAt=0; L._syaHitRevealEnd=0; L._thornLastTick=0; L._startBoostEnd = getAugCount('start_boost')>0 ? performance.now()+8000 : 0; L._sherinaEchoZones=[]; L._sherinaGlobalHitCd=new Map(); L._pelunaEmpowerExpiry=0; L._pelunaPreswing=false; L._pelunaToken=0
+  L._pelunaAnvils=[]; L._sherinaPaths=[]; L._pierceShotReady=false; L._pierceShotCd=0; L._pierceShotUsed=false; L._intuAmmo=12; L._intuWeapon='pistol'; L._intuReloading=false; L._intuLastSync=''; L._intuReloadEnd=0; L._roonSlush=0; L._roonZones=[]; L._roonIncomingZones=[]; R._roonSlush=0; L._runefRmbActive=false; L._runefShot1=false; L._runefNextSpell='fire'; clearTimeout(L._runefRmbTimer); clearTimeout(L._runefShot1Timer); L._syaInvisible=false; L._syaAttackBoost=0; L._syaInvisStart=0; L._syaInvisEndAt=0; L._syaHitRevealEnd=0; L._thornLastTick=0; L._startBoostEnd = getAugCount('start_boost')>0 ? performance.now()+8000 : 0; L._sherinaEchoZones=[]; L._sherinaGlobalHitCd=new Map(); L._pelunaEmpowerExpiry=0; L._pelunaPreswing=false; L._pelunaToken=0
   R._pelunaAnvil=null;
     if (_dodgeInterval) { clearInterval(_dodgeInterval); _dodgeInterval=null; }
 }
@@ -11838,7 +12087,10 @@ function startGame() {
   document.getElementById('hud').style.display='flex';
 
   resetL();
+  // 인투 탄창 바 초기화
   const rc=CHARACTERS[peerCharId];
+  // 상대 인투 상태 초기화
+  R._intuAmmo=12; R._intuWeapon='pistol'; R._intuReloading=false;
   R.color=rc.color; R.defaultColor=rc.color; R.charDef=rc;
   R.maxHealth=rc.maxHealth; R.health=rc.maxHealth;
   R.radius=rc.radius??20; R.stamina=STAM_MAX; R.dodging=false; R.counterReady=false;
@@ -12534,6 +12786,7 @@ function loop() {
 
   // 스야 은신 처리
   // 로온 빙수 지대 처리 (내가 만든 존)
+  // 인투 재장전 게이지는 drawPlayer에서 처리
   if (gameOn && L.charDef?.id==='roon' && L._roonZones) {
     const _rnow = performance.now();
     L._roonZones = L._roonZones.filter(z=>_rnow<z.expiry);
@@ -12598,6 +12851,19 @@ function loop() {
       const _id=Math.hypot(L.x-_iz.x,L.y-_iz.y);
       if (_id>_iz.r-L.radius){const _ia=Math.atan2(L.y-_iz.y,L.x-_iz.x);L.x=_iz.x+Math.cos(_ia)*(_iz.r-L.radius);L.y=_iz.y+Math.sin(_ia)*(_iz.r-L.radius);L.tx=L.x;L.ty=L.y;}
     }
+  }
+  // 인투 상태 매 프레임 동기화 (탄창/무기/재장전)
+  if (gameOn && L.charDef?.id==='intu') {
+    const _iCur = JSON.stringify([L._intuAmmo??12, L._intuWeapon||'pistol', !!L._intuReloading]);
+    if (_iCur !== L._intuLastSync) {
+      L._intuLastSync = _iCur;
+      send({type:'intuState', ammo:L._intuAmmo??12, weapon:L._intuWeapon||'pistol', reloading:!!L._intuReloading});
+    }
+  }
+  // 인투 반격기 선딜레이 중 방향 갱신
+  if (gameOn && L.charDef?.id==='intu' && L._intuCounterActive) {
+    // 저격: 벽 관통이므로 전체 사거리 표시
+    L._attackPreview = {shapes:[{type:'line', range:1200, width:8, pierceWalls:true}]};
   }
   // 로온 반격기 선딜레이 중 방향 갱신
   if (gameOn && L.charDef?.id==='roon' && L._counterToken && L._roonCounterActive) {
